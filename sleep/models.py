@@ -6,6 +6,8 @@
 from torch import nn
 import torch
 
+
+
 class TimeReLU(nn.Module):
 
     '''
@@ -16,27 +18,130 @@ class TimeReLU(nn.Module):
         
         super(TimeReLU,self).__init__()
         self.leaky = leaky
-        self.model = nn.Linear(time_shape, data_shape)
+        self.model_0 = nn.Linear(time_shape, 32)
+        self.model_1 = nn.Linear(32, data_shape)
+        #self.model_2 = nn.Linear(32, data_shape)
         self.time_dim = time_shape        
 
         if self.leaky:
-            self.model_alpha = nn.Linear(time_shape, data_shape)
+            self.model_alpha_0 = nn.Linear(time_shape, 32)
+            self.model_alpha_1 = nn.Linear(32, data_shape)
+            #self.model_alpha_2 = nn.Linear(32, data_shape)
+
+        self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, X, times):
 
-        thresholds = self.model(times)
+        thresholds = self.model_1(self.model_0(times))
 
         if self.leaky:
-            alphas = self.model_alpha(times)
+            alphas = self.model_alpha_1(self.model_alpha_0(times))
         else:
             alphas = 0.0
-        X = torch.where(X>thresholds,X,alphas*X+thresholds)
+        X = torch.where(X>thresholds,X-thresholds,alphas*(X-thresholds))
         return X
 
+class Time2Vec(nn.Module):
+
+    '''
+    Time encoding inspired by the Time2Vec paper
+    '''
+
+    def __init__(self, in_shape, out_shape):
+
+        super(Time2Vec, self).__init__()
+        linear_shape = out_shape//4
+        dirac_shape = 0
+        sine_shape = out_shape - linear_shape - dirac_shape
+        self.model_0 = nn.Linear(in_shape, linear_shape)
+        self.model_1 = nn.Linear(in_shape, sine_shape)
+        #self.model_2 = nn.Linear(in_shape, dirac_shape)
+
+    def forward(self, X):
+
+        te_lin = self.model_0(X)
+        te_sin = torch.sin(self.model_1(X))
+        #te_dir = torch.max(10, torch.exp(-(self.model_2(X))))
+        te = torch.cat([te_lin, te_sin], axis=1)
+        return te
+
+class Autoencoder(nn.Module):
+
+    def __init__(self, data_shape, hidden_shape_list, out_shape, enc_index, time_conditioning=False, leaky=False, time2vec=False):
+        
+        super(Autoencoder,self).__init__()
+
+        # Disallow simple logistic regression
+        assert (len(hidden_shape_list) > 0)
+        self.time_conditioning = time_conditioning
+        self.layers = nn.ModuleList()
+        self.relus = nn.ModuleList()
+        self.time2vec = None
+        self.using_time2vec = time2vec
+        self.hidden_layers = len(hidden_shape_list)
+        self.time_dim = 1
+        self.enc_index = enc_index
+        if time2vec:
+            self.time2vec = Time2Vec(1, 8)
+            self.time_dim = 8
+        
+        self.layers.append(nn.Linear(data_shape,hidden_shape_list[0]))
+        if time_conditioning:
+            self.relus.append(TimeReLU(hidden_shape_list[0], self.time_dim, leaky))
+        else:
+            self.relus.append(nn.LeakyReLU())
+
+        for i in range(1, len(hidden_shape_list)):
+            self.layers.append(nn.Linear(hidden_shape_list[i-1], hidden_shape_list[i]))
+            if time_conditioning:
+                self.relus.append(TimeReLU(hidden_shape_list[i], self.time_dim, leaky))
+            else:
+                self.relus.append(nn.LeakyReLU())
+            
+        self.layers.append(nn.Linear(hidden_shape_list[-1], out_shape))
+        self.relus.append(nn.LeakyReLU())
+
+    def _reset_layers(self):
+
+        for l in self.layers[1:]:
+            l.reset_parameters()
+
+    def forward(self, X, times=None):
+        
+        if self.time_conditioning:
+
+            if self.using_time2vec:
+                times = self.time2vec(times)
+
+            for i in range(self.hidden_layers):
+                X = self.relus[i](self.layers[i](X), times)
+        else:
+            for i in range(self.hidden_layers):
+                X = self.relus[i](self.layers[i](X))
+            
+        X = self.relus[-1](self.layers[-1](X))
+        X = torch.softmax(X, dim=1)
+
+        return X
+
+    def _latent(self, X, times=None):
+
+        if self.time_conditioning:
+
+            if self.using_time2vec:
+                times = self.time2vec(times)
+
+            for i in range(self.enc_index):
+                X = self.relus[i](self.layers[i](X), times)
+        else:
+            for i in range(self.hidden_layers):
+                X = self.relus[i](self.layers[i](X))
+
+        return X
 
 class ClassifyNet(nn.Module):
 
-    def __init__(self, data_shape, hidden_shape_list, out_shape, time_conditioning=False, leaky=False):
+    def __init__(self, data_shape, hidden_shape_list, out_shape, time_conditioning=False, leaky=False, time2vec=False):
         
         super(ClassifyNet,self).__init__()
 
@@ -45,27 +150,41 @@ class ClassifyNet(nn.Module):
         self.time_conditioning = time_conditioning
         self.layers = nn.ModuleList()
         self.relus = nn.ModuleList()
+        self.time2vec = None
+        self.using_time2vec = time2vec
         self.hidden_layers = len(hidden_shape_list)
+        self.time_dim = 1
+        if time2vec:
+            self.time2vec = Time2Vec(1, 8)
+            self.time_dim = 8
         
         self.layers.append(nn.Linear(data_shape,hidden_shape_list[0]))
         if time_conditioning:
-            self.relus.append(TimeReLU(hidden_shape_list[0], 1, leaky))
+            self.relus.append(TimeReLU(hidden_shape_list[0], self.time_dim, leaky))
         else:
             self.relus.append(nn.LeakyReLU())
 
         for i in range(1, len(hidden_shape_list)):
             self.layers.append(nn.Linear(hidden_shape_list[i-1], hidden_shape_list[i]))
             if time_conditioning:
-                self.relus.append(TimeReLU(hidden_shape_list[i], 1, leaky))
+                self.relus.append(TimeReLU(hidden_shape_list[i], self.time_dim, leaky))
             else:
                 self.relus.append(nn.LeakyReLU())
             
         self.layers.append(nn.Linear(hidden_shape_list[-1], out_shape))
         self.relus.append(nn.LeakyReLU())
 
+    def _reset_layers(self):
+
+        for l in self.layers[1:]:
+            l.reset_parameters()
+
     def forward(self, X, times=None):
         
         if self.time_conditioning:
+
+            if self.using_time2vec:
+                times = self.time2vec(times)
 
             for i in range(self.hidden_layers):
                 X = self.relus[i](self.layers[i](X), times)
@@ -80,82 +199,117 @@ class ClassifyNet(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, data_shape, latent_shape_1, latent_shape_2, label_dim=0):
+    def __init__(self, data_shape, latent_list, time2vec=False, label_dim=0):
         
         super(Transformer,self).__init__()
 
-        self.layer_0 = nn.Linear(data_shape,latent_shape_1)
-        self.leaky_relu_0 = TimeReLU(latent_shape_1,2,True)
+        self.using_time2vec = time2vec
+        self.time2vec = None
+        self.time_dim = 2
+        self.latent_layers = len(latent_list)
+        if self.using_time2vec:
+            self.time2vec = Time2Vec(2, 8)
+            self.time_dim = 8
 
-        self.layer_1 = nn.Linear(latent_shape_1,latent_shape_1)
-        self.leaky_relu_1 = TimeReLU(latent_shape_1,2,True)
+        self.layers = nn.ModuleList()
+        self.relus = nn.ModuleList()
+        self.bn = nn.ModuleList()
+        self.layers.append(nn.Linear(data_shape, latent_list[0]))
+        self.relus.append(TimeReLU(latent_list[0], self.time_dim, True))
+        self.bn.append(nn.BatchNorm1d(latent_list[0], affine=True))
 
-        self.layer_2 = nn.Linear(latent_shape_1,latent_shape_1)
-        self.leaky_relu_2 = TimeReLU(latent_shape_1,2,True)
+        for i in range(1, self.latent_layers):
+            self.layers.append(nn.Linear(latent_list[i-1], latent_list[i]))
+            self.relus.append(TimeReLU(latent_list[i], self.time_dim))
+            self.bn.append(nn.BatchNorm1d(latent_list[i], affine=True))
+        self.layers.append(nn.Linear(latent_list[-1],data_shape-2))
 
-        self.layer_3 = nn.Linear(latent_shape_1,latent_shape_2)
-        self.leaky_relu_3 = TimeReLU(latent_shape_2,2,True)
-
-        self.layer_4 = nn.Linear(latent_shape_2,latent_shape_2)
-        self.leaky_relu_4 = TimeReLU(latent_shape_2,2,True)
-
-        self.layer_5 = nn.Linear(latent_shape_2,latent_shape_2)
-        self.leaky_relu_5 = TimeReLU(latent_shape_2,2,True)
-
-        self.layer_6 = nn.Linear(latent_shape_2,latent_shape_2)
-        self.leaky_relu_6 = TimeReLU(latent_shape_2,2,True)
-
-        self.layer_last = nn.Linear(latent_shape_2,data_shape-2)
         self.label_dim = label_dim
 
     def forward(self, X, times):
         
-        X = self.leaku_relu_0(self.layer_0(X), times)
-        X = self.leaku_relu_1(self.layer_1(X), times)
-        X = self.leaku_relu_2(self.layer_2(X), times)
-        X = self.leaku_relu_3(self.layer_3(X), times)
-        X = self.leaku_relu_4(self.layer_4(X), times)
-        X = self.leaku_relu_5(self.layer_5(X), times)
-        X = self.leaku_relu_6(self.layer_6(X), times)
-        
-        X = self.layer_last(X)
-        if self.label_dim:
-            lab = torch.sigmoid(X[:,-1])
-            # X_new = self.leaky_relu(X[:,:-1])
-            X = torch.cat([X,lab.unsqueeze(1)],dim=1)
-        # else:
-        #     X = self.leaky_relu(X)
+        if self.using_time2vec:
+            times = self.time2vec(times)
+
+        for i in range(self.latent_layers):
+            X = self.bn[i](self.relus[i](self.layers[i](X), times))
+
+        X = self.layers[-1](X)
         return X
 
 
 class Discriminator(nn.Module):
 
-    def __init__(self,data_shape, hidden_shape_list, is_wasserstein=False):
+    def __init__(self,data_shape, hidden_shape_list, time_conditioning=False, time2vec=False, is_wasserstein=True):
 
         super(Discriminator,self).__init__()
         
-        self.layers = []
-        self.hidden_layers = len(hidden_shape_list)
-
-        self.layers = []
+        self.layers = nn.ModuleList()
+        self.bn = nn.ModuleList()
         self.relu = nn.LeakyReLU()
+        self.relus = nn.ModuleList()
+        self.time_conditioning = time_conditioning
+        
+
+        self.hidden_layers = len(hidden_shape_list)
+        self.using_time2vec = time2vec
+        self.time2vec = None
+        self.time_dim = 1
+        if self.using_time2vec:
+            self.time2vec = Time2Vec(1, 8)
+            self.time_dim = 8
+
         self.layers.append(nn.Linear(data_shape,hidden_shape_list[0]))
+        self.bn.append(nn.BatchNorm1d(hidden_shape_list[0], affine=True))
+
+        if self.time_conditioning:
+            self.relus.append(TimeReLU(hidden_shape_list[0], self.time_dim))
+
         for i in range(1, self.hidden_layers):
             self.layers.append(nn.Linear(hidden_shape_list[i-1], hidden_shape_list[i]))
+            self.bn.append(nn.BatchNorm1d(hidden_shape_list[i], affine=True))
+            if self.time_conditioning:
+                self.relus.append(TimeReLU(hidden_shape_list[i], self.time_dim))
+            
+        self.layers.append(nn.Linear(hidden_shape_list[-1], 1))
         
         self.is_wasserstein = is_wasserstein
 
-    def forward(self,X):
-        
-        for i in range(self.hidden_layers):
-            X = self.relu(self.layers[i](X))
+    def _load_time2vec_model(self, model):
 
+        self.time2vec.load_state_dict(model.state_dict())
+        for param in self.time2vec.parameters():
+            param.requires_grad = False
+
+    def forward(self,X,times=None):
+        
+        if self.using_time2vec and self.time_conditioning:
+            times = self.time2vec(times)
+
+        for i in range(self.hidden_layers):
+            if self.time_conditioning:
+                X = self.bn[i](self.relus[i](self.layers[i](X), times))
+            else:
+                X = self.bn[i](self.relu(self.layers[i](X)))
+
+        X = self.layers[-1](X)
         if not self.is_wasserstein:
             X = torch.sigmoid(X)
             
         return X
 
+    def _feature(self, X, times=None):
 
+        if self.using_time2vec and self.time_conditioning:
+            times = self.time2vec(times)
+
+        for i in range(self.hidden_layers):
+            if self.time_conditioning:
+                X = self.bn[i](self.relus[i](self.layers[i](X), times))
+            else:
+                X = self.bn[i](self.relu(self.layers[i](X)))
+
+        return X
 
 
 class TimeEncodings(nn.Module):
@@ -183,38 +337,55 @@ class TimeEncodings(nn.Module):
 #     def __init__(self,model_dim,encoding):
 
 
-def classification_loss(Y_pred, Y):
+#def classification_loss(Y_pred, Y):
     # print(Y_pred)
-    return  -1.*torch.sum((Y * torch.log(Y_pred + 1e-9)))
+#    return  -1.*torch.sum((Y * torch.log(Y_pred + 1e-9)))
+
+def classification_loss(Y_pred, Y, is_kernel=False, kernel=None):
+    
+    loss = - torch.sum((Y * torch.log(Y_pred + 1e-9)), 1).view(-1,1)
+    
+    if is_kernel:
+        loss = torch.sum(loss * kernel)
+
+    loss = torch.sum(loss)
+    return loss
 
 def bxe(real, fake):
     return -1.*((real*torch.log(fake+ 1e-9)) + ((1-real)*torch.log(1-fake + 1e-9)))
 
-def discriminator_loss(real_output, trans_output):
+def discriminator_loss(real_output, trans_output, is_wasserstein):
 
-    # bxe = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
-    real_loss = bxe(torch.ones_like(real_output), real_output)
-    trans_loss = bxe(torch.zeros_like(trans_output), trans_output)
-    total_loss = real_loss + trans_loss
-    
-    return total_loss.mean()
+    if is_wasserstein:
+
+        real_loss = torch.mean(real_output)
+        trans_loss = -torch.mean(trans_output)
+        total_loss = real_loss + trans_loss
+
+    else:
+        real_loss = bxe(torch.ones_like(real_output), real_output)
+        trans_loss = bxe(torch.zeros_like(trans_output), trans_output)
+        total_loss = real_loss + trans_loss
+        total_loss = total_loss.mean()
+        
+    return total_loss
+'''
 def discriminator_loss_wasserstein(real_output, trans_output):
 
     # bxe = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
-    real_loss = torch.mean(real_output)
-    trans_loss = -torch.mean(trans_output)
-    total_loss = real_loss + trans_loss
     
     return total_loss
 
+'''
 def reconstruction_loss(x,y):
-    # print(torch.cat([x,y],dim=1))
-    return torch.sum((x-y)**2,dim=1)
+    
+    loss = torch.sum((x-y)**2,dim=1)
+    return torch.mean(loss)
 
 
-def transformer_loss(trans_output,is_wasserstein=False):
+def transformer_loss(trans_output,is_wasserstein=True):
 
     if is_wasserstein:
         return trans_output
@@ -240,13 +411,14 @@ def discounted_transformer_loss(real_data, trans_data, ot_data, trans_output, pr
     return loss, tr_loss.mean(),re_loss.mean(), class_loss.mean()
     #return loss, tr_loss.mean(),0, class_loss.mean()
 
-def ot_transformer_loss(real_data, trans_data, ot_data):
+def ot_transformer_loss(real_data, trans_data, disc_output, ot_data, is_wasserstein=True):
 
-    time_diff = torch.exp(-torch.abs(real_data[:,-1] - real_data[:,-2]))
-    re_loss = (trans_data - ot_data)**2
-
-    loss = re_loss * time_diff
-
+    time_diff = torch.exp(-torch.abs(real_data[:,-1] - real_data[:,-2])/2).view(-1,1)
+    
+    re_loss = torch.sum((trans_data - ot_data)**2, 1).view(-1,1)
+    disc_loss = transformer_loss(disc_output, is_wasserstein).view(-1,1)
+    loss = re_loss * (1 - time_diff) + disc_loss * time_diff
+    
     return torch.mean(loss)
 
 

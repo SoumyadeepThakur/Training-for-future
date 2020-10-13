@@ -5,6 +5,10 @@ from sklearn.datasets import make_classification, make_moons
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.impute import KNNImputer, SimpleImputer
 
+def impute_metric(X, Y, metric, **kwargs):
+
+	pass
+
 def load_sleep2(filename):
 
 	domains = 5
@@ -39,11 +43,12 @@ def load_sleep2(filename):
 		df = df[df['age_s1'] > ckpt]
 		Y_temp = data_temp['Staging1'].values
 		Y_temp = np.eye(2)[Y_temp.astype(np.int32)]
-		A_temp = (data_temp['age_s1'].values-39)/90
+		#A_temp = (data_temp['age_s1'].values-39)/90
+		A_temp = (data_temp['age_s1'].values-38)/90
 		data_temp = data_temp.drop(['Staging1'], axis=1)
 		X_temp = data_temp.drop(['Staging2', 'Staging3', 'Staging4', 'Staging5', 'age_s1', 'age_category_s1'], axis=1).values
-		U_temp = np.array([i]*X_temp.shape[0])
-
+		#U_temp = np.array([i]*X_temp.shape[0])*1.0/5
+		U_temp = np.array([i+1]*X_temp.shape[0])*1.0/5
 		print(X_temp.shape)
 		print(Y_temp.shape)
 		print(A_temp.shape)
@@ -144,7 +149,7 @@ def load_moons(domains):
 		#plt.clf()
 
 		Y = np.eye(2)[Y]
-		U = np.array([i] * 200)
+		U = np.array([i*1.0] * 200)/domains
 
 		X_data.append(X)
 		Y_data.append(Y)
@@ -155,4 +160,13 @@ def load_moons(domains):
 if __name__=="__main__":
 
 	X_data, Y_data, U_data = load_sleep('shhs1-dataset-0.15.0.csv')
+	for i in range(len(X_data)):
+		print(X_data[i].shape)
+		a=0
+		b=0
+		for j in range(len(Y_data[i])):
+			if Y_data[i][j][0] == 1: a += 1
+			else: b+=1
+
+		print(a,b)
 
