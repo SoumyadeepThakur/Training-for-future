@@ -5,10 +5,14 @@ This file saves all final datasets, which the dataloader shall read and give out
 import pandas as pd
 import numpy as np
 import math
+
 from datetime import datetime
+
+# from sklearn.datasets import make_classification, make_moons
 from torchvision.transforms.functional import rotate
 from torchvision.datasets.folder import  has_file_allowed_extension, is_image_file, IMG_EXTENSIONS, pil_loader, accimage_loader,default_loader
 from tqdm import tqdm 
+
 import torch
 import os
 import json
@@ -18,56 +22,10 @@ from utils import *
 MOON_SAMPLES = 200
 ROTNIST_SAMPLES = 1000
 
-def load_m5(filename):
-	X_data, Y_data, A_data, U_data = [], [], [], []
-
-	sc = StandardScaler()
-	train = pd.read_csv(trainfile)
-
-	ckpts = ['2014-01-01', '2015-01-01', '2016-01-01']
-
-	for i, ckpt in enumerate(ckpts):
-
-		print('Dom %d' %i)
-
-		cur = train[train['date'] < ckpt]
-		train = train[train['date'] >= ckpt]
-		cur = cur.drop(['date', 'part', 'id'], axis=1)
-
-		Y = cur['demand'].values.astype(np.float32)
-		X = cur.drop(['demand'], axis=1).values.astype(np.float32)
-		if i == 0:
-			X = sc.fit_transform(X)
-		else:
-			X = sc.transform(X)
-			
-		U = np.array([i]*X.shape[0])
-		A = np.array([i]*X.shape[0]) + cur['month'].values/12.0
-
-		X_data.append(X)
-		Y_data.append(Y)
-		U_data.append(U)
-		A_data.append(A)
-
-	test = pd.read_csv(testfile)
-
-	Y = cur['demand'].values.astype(np.float32)
-	X = cur.drop(['demand'], axis=1).values.astype(np.float32)
-	U = np.array([len(ckpts)]*X.shape[0])
-	A = np.array([len(ckpts)]*X.shape[0]) + cur['month'].values/12.0
-
-	X_data.append(X)
-	Y_data.append(Y)
-	U_data.append(U)
-	A_data.append(A)	
-
-	return np.array(X_data), np.array(Y_data), np.array(A_data), np.array(U_data)
 def load_sleep(filename):
 
 	domains = 5
 	
-	processed_folder = os.path.join(root, 'Sleep', 'processed')
-
 	df =  pd.read_csv(filename)
 	df = df.drop(['rcrdtime'], axis=1)
 	nan_values = dict()
@@ -121,11 +79,10 @@ def load_sleep(filename):
 		A_data.append(A_temp)
 		U_data.append(U_temp)
 
-	np.save("{}/X.npy".format(processed_folder), X_data, allow_pickle=True)
-	np.save("{}/Y.npy".format(processed_folder), Y_data, allow_pickle=True)
-	np.save("{}/A.npy".format(processed_folder), A_data, allow_pickle=True)
-	np.save("{}/U.npy".format(processed_folder), U_data, allow_pickle=True)
-	np.save("{}/indices.npy".format(processed_folder), all_indices, allow_pickle=True)
+	np.save(np.array(X_data))
+	np.save(np.array(Y_data))
+	np.save(np.array(A_data))
+	np.save(np.array(U_data))
 	# Save indices
 
 def load_moons(domains, root='../../data'):
@@ -286,10 +243,17 @@ def load_house_price(root_dir="../../data/HousePrice", text_file="../../data/Hou
 
 	df = df.sort_values(by='datesoldstamp')
 
-	
+	# testtime = 1546300800 - 1.170806e+09
+
+	# train  = df.loc[df["datesoldstamp"]<testtime,:]
+	# test = df.loc[df["datesoldstamp"]>testtime,:]
+
+	# label = train["price"]
+	# data = train.loc[:, train.columns != 'price']
 	data = df.to_numpy()
 	for idx,row in enumerate(data):
 		all_labels.append(row[0]/10000)
+
 		u = int(datetime.fromtimestamp(int(row[-1])).year)
 		all_X.append(np.array(row[1:].tolist()+[u]))
 		# all_U.append(u)
@@ -298,13 +262,13 @@ def load_house_price(root_dir="../../data/HousePrice", text_file="../../data/Hou
 			indices[u].append(idx)
 		else:
 			indices[u] = [idx]
-	print(idx)
+	# print(idx)
 	all_X = np.stack(all_X)
-	print(all_X)
 	all_X = all_X - all_X.min(axis=0).reshape((1,-1))
 	all_X = all_X / all_X.max(axis=0).reshape((1,-1))
 	all_U = all_X[:,-1]
 	all_A = all_X[:,-2]
+	print(all_X[:3])
 	new_ind = []
 	for i in [2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019]:
 		print(len(indices[i]))
@@ -379,4 +343,4 @@ def load_house_price_classification(root_dir="../../data/HousePriceClassificatio
 
 if __name__ == '__main__':
 	
-	load_moons()
+	load_house_price()
