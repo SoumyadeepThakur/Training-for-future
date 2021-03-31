@@ -8,7 +8,7 @@ import math
 
 from datetime import datetime
 
-# from sklearn.datasets import make_classification, make_moons
+from sklearn.datasets import make_moons
 from torchvision.transforms.functional import rotate
 from torchvision.datasets.folder import  has_file_allowed_extension, is_image_file, IMG_EXTENSIONS, pil_loader, accimage_loader,default_loader
 from tqdm import tqdm 
@@ -21,6 +21,7 @@ from utils import *
 
 MOON_SAMPLES = 200
 ROTNIST_SAMPLES = 1000
+FIXED_SEED = 0
 
 def load_sleep(filename):
 
@@ -85,7 +86,7 @@ def load_sleep(filename):
     np.save(np.array(U_data))
     # Save indices
 
-def load_moons(domains, root='../../data'):
+def load_moons(domains=11, root='../../data'):
 
     """
 
@@ -107,13 +108,13 @@ def load_moons(domains, root='../../data'):
 
         angle = i*math.pi/(domains-1)
 
-        X, Y = make_moons(n_samples=200, noise=0.1)
+        X, Y = make_moons(n_samples=MOON_SAMPLES, noise=0.1, random_state=FIXED_SEED)
         rot = np.array([[math.cos(angle), math.sin(angle)], [-math.sin(angle), math.cos(angle)]])
         X = np.matmul(X, rot)
 
-        Y = np.eye(2)[Y]  
-        U = np.array([i//domains] * 200)
-        A = np.array([i//domains] * 200)
+        #Y = np.eye(2)[Y]  
+        U = np.array([i//domains] * MOON_SAMPLES)
+        A = np.array([i//domains] * MOON_SAMPLES)
 
         X_data.append(X)
         Y_data.append(Y)
@@ -122,14 +123,14 @@ def load_moons(domains, root='../../data'):
 
     all_indices = [[x for x in range(i*MOON_SAMPLES,(i+1)*MOON_SAMPLES)] for i in range(domains)]
 
-    np.save("{}/X.npy".format(processed_folder), X_data, allow_pickle=True)
-    np.save("{}/Y.npy".format(processed_folder), Y_data, allow_pickle=True)
-    np.save("{}/A.npy".format(processed_folder), A_data, allow_pickle=True)
-    np.save("{}/U.npy".format(processed_folder), U_data, allow_pickle=True)
-    np.save("{}/indices.npy".format(processed_folder), all_indices, allow_pickle=True)
-    #json.dump(all_indices, open("{}/indices.json".format(processed_folder),"w"))
+    os.makedirs("{}".format(processed_folder), exist_ok=True)
+    np.save("{}/X.npy".format(processed_folder), np.vstack(X_data), allow_pickle=True)
+    np.save("{}/Y.npy".format(processed_folder), np.hstack(Y_data).reshape(-1, 1), allow_pickle=True)
+    np.save("{}/A.npy".format(processed_folder), np.hstack(A_data).reshape(-1, 1), allow_pickle=True)
+    np.save("{}/U.npy".format(processed_folder), np.hstack(U_data).reshape(-1, 1), allow_pickle=True)
+    json.dump(all_indices, open("{}/indices.json".format(processed_folder),"w"))
 
-def load_Rot_MNIST(use_vgg,root="../../data"):
+def load_Rot_MNIST(use_vgg, root="../../data"):
 
     mnist_ind = (np.arange(60000))
     np.random.shuffle(mnist_ind)
@@ -159,18 +160,18 @@ def load_Rot_MNIST(use_vgg,root="../../data"):
         else:
             image = image.reshape((1,28,28))
             # image = (image - vgg_means)/vgg_stds
-
+        I_y = np.eye(10)
         all_images.append(image)
         all_labels.append(targets[index])
-        all_U.append(bin/6)
-        all_A.append(angle/90)
+        all_U.append([bin/6])
+        all_A.append([angle/90])
 
-    np.save("{}/X.npy".format(processed_folder),np.stack(all_images),allow_pickle=True)
-    np.save("{}/Y.npy".format(processed_folder),np.array(all_labels),allow_pickle=True)
-    np.save("{}/A.npy".format(processed_folder),np.array(all_A),allow_pickle=True)
-    np.save("{}/U.npy".format(processed_folder),np.array(all_U),allow_pickle=True)
+    os.makedirs("{}".format(processed_folder), exist_ok=True)
+    np.save("{}/X.npy".format(processed_folder), np.stack(all_images),allow_pickle=True)
+    np.save("{}/Y.npy".format(processed_folder), np.array(all_labels),allow_pickle=True)
+    np.save("{}/A.npy".format(processed_folder), np.array(all_A),allow_pickle=True)
+    np.save("{}/U.npy".format(processed_folder), np.array(all_U),allow_pickle=True)
     json.dump( all_indices,open("{}/indices.json".format(processed_folder),"w"))
-    # json.dump(all_indices, open("{}/indices.json".format(processed_folder),"w"))
 
 
 def load_comp_cars(root_dir="../../data/CompCars", text_file="../../data/CompCars/adagraph_filtered.txt",out_size=(3,224,224)):
