@@ -35,7 +35,7 @@ def main(args):
         if args.data == "moons":
             load_moons()
         if args.data == "sleep":
-            load_sleep()
+            load_sleep("../../data/Sleep/shhs1-dataset-0.15.0.csv")
         if args.data == "cars":
             load_comp_cars()
         if args.data == "house":
@@ -63,8 +63,8 @@ if __name__ == '__main__':
     """ Arguments: arg """
     parser.add_argument('--train_algo',help="String, needs to be one of grad or transformer")
     parser.add_argument('--data',help="String, needs to be one of mnist, sleep, moons, cars")
-    parser.add_argument('--epoch_finetune',default=20,help="Needs to be int, number of epochs for transformer/ordinal classifier",type=int)
-    parser.add_argument('--epoch_classifier',default=20,help="Needs to be int, number of epochs for classifier",type=int)
+    parser.add_argument('--epoch_finetune',default=10,help="Needs to be int, number of epochs for transformer/ordinal classifier",type=int)
+    parser.add_argument('--epoch_classifier',default=10,help="Needs to be int, number of epochs for classifier",type=int)
     parser.add_argument('--bs',default=100,help="Batch size",type=int)
     parser.add_argument('--early_stopping',action='store_true',help="Early Stopping for finetuning")
     parser.add_argument('--use_cuda',action='store_true',help="Should we use a GPU")

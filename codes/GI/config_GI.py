@@ -95,3 +95,26 @@ class Config():
 
 
 
+		if args.data == "sleep":
+
+			self.epoch_classifier = args.epoch_classifier   # 30
+			self.epoch_finetune = args.epoch_finetune # 25
+
+			self.bs = args.bs  # 250
+		
+			self.dataset_kwargs = {"root_dir":"../../data/Sleep/processed","device":args.device, "drop_cols":None}
+			self.source_domain_indices = [0, 1, 2, 3]
+			self.target_domain_indices = [4]
+			self.data_index_file = "../../data/Sleep/processed/indices.json"
+			from models_GI import PredictionModel
+			self.classifier = PredictionModel
+			self.model_kwargs =  {"data_shape":671, "hidden_shape":300, "out_shape":1, "time2vec":False}
+			self.lr = 1e-4
+			self.classifier_loss_fn = binary_classification_loss
+			self.loss_type = 'classification'
+			self.encoder = None
+
+			self.delta_lr=0.05
+			self.delta_clamp=0.5
+			self.delta_steps=5
+			self.lambda_GI=0.0
