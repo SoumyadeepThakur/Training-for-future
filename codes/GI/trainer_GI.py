@@ -24,7 +24,7 @@ np.set_printoptions(precision = 3)
 
 
 
-def train_classifier_batch(X,dest_u,dest_a,Y,classifier,classifier_optimizer,batch_size,verbose=False,encoder=None, transformer=None,source_u=None, kernel=None,loss_fn=classification_loss):
+def train_classifier_batch(X, dest_u, dest_a, Y, classifier, classifier_optimizer, batch_size, verbose=False, encoder=None, transformer=None, source_u=None, kernel=None, loss_fn=classification_loss):
 	'''Trains classifier on a batch
 	
 	
@@ -53,7 +53,7 @@ def train_classifier_batch(X,dest_u,dest_a,Y,classifier,classifier_optimizer,bat
 	else:
 		X_pred = X
 
-	Y_pred = classifier(X_pred,dest_a)
+	Y_pred = classifier(X_pred, dest_a)
 	pred_loss = loss_fn(Y_pred, Y)
 
 	# if verbose:
@@ -111,7 +111,7 @@ def finetune(X, U, Y, delta, classifier, classifier_optimizer,classifier_loss_fn
 	return pred_loss
 
 
-def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer,classifier_loss_fn,delta_lr=0.1,delta_clamp=0.15,delta_steps=10,lambda_GI=0.5,writer=None,step=None,string=None):
+def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer, classifier_loss_fn, delta_lr=0.1, delta_clamp=0.15, delta_steps=10, lambda_GI=0.5,writer=None, step=None, string=None):
 	
 	classifier_optimizer.zero_grad()
 	
@@ -134,17 +134,14 @@ def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer,classi
 				logit = Y_pred[:,idx].view(-1,1)
 				partial_logit_pred_t.append(torch.autograd.grad(logit, U_grad, grad_outputs=torch.ones_like(logit), retain_graph=True)[0])
 
-			
-				partial_Y_pred_t = torch.cat(partial_logit_pred_t, 1)
+				partial_Y_pred_t = torch.cat(partial_logit_pred_t, dim=1)
 
 
 		# partial_Y_pred_t = torch.autograd.grad(Y_pred, U_grad, grad_outputs=torch.ones_like(Y_pred), retain_graph=True)[0]
 		Y_pred = Y_pred + delta * partial_Y_pred_t
-		if len(Y_pred.shape)>1 and Y_pred.shape[1] > 1:
-			Y_pred = torch.softmax(Y_pred,dim=-1)
-		#print(Y_pred.shape)
-		#print(Y_pred[0:10])
-		# loss = -torch.mean(Y_true * torch.log(Y_pred + 1e-9))
+		if len(Y_pred.shape) > 1 and Y_pred.shape[1] > 1:
+			Y_pred = torch.softmax(Y_pred, dim=-1)
+		
 		loss = classifier_loss_fn(Y_pred,Y)
 		partial_loss_delta = torch.autograd.grad(loss, delta, grad_outputs=torch.ones_like(loss), retain_graph=True)[0]
 		delta = delta + delta_lr*partial_loss_delta
@@ -163,7 +160,7 @@ def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer,classi
 
 	partial_logit_pred_t = []
 
-	if len(Y_pred.shape)<2 or Y_pred.shape[1] < 2:
+	if len(Y_pred.shape) < 2 or Y_pred.shape[1] < 2:
 		partial_Y_pred_t = torch.autograd.grad(Y_pred, U_grad, grad_outputs=torch.ones_like(Y_pred), retain_graph=True)[0]
 	else:
 		for idx in range(Y_pred.shape[1]):
@@ -176,16 +173,22 @@ def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer,classi
 	#print(partial_Y_pred_t.shape)
 	# partial_Y_pred_t = torch.autograd.grad(Y_pred, U_grad, grad_outputs=torch.ones_like(Y_pred), retain_graph=True)[0]
 	Y_pred = Y_pred + delta * partial_Y_pred_t
-	if len(Y_pred.shape)>1 and Y_pred.shape[1] > 1:
-		Y_pred = torch.softmax(Y_pred,dim=-1)
+	
+	if len(Y_pred.shape) > 1 and Y_pred.shape[1] > 1:
+		Y_pred = torch.softmax(Y_pred, dim=-1)
+
+	else:
+		Y_pred = torch.sigmoid(Y_pred)
+
+	
 	# Y_true = Y
 	#Y_true = torch.argmax(Y, 1).view(-1,1).float()
 
 	
 	# pred_loss = -torch.mean(Y_true * torch.log(Y_pred + 1e-9))# + (1 - Y_true) * torch.log(1 - Y_pred + 1e-9))
 	#pred_loss = torch.mean((Y_pred - Y_true)**2)
-	Y_orig_pred = classifier(X,U)
-	pred_loss = classifier_loss_fn(Y_pred,Y).mean() + lambda_GI*classifier_loss_fn(Y_orig_pred,Y).mean() #+ 5*(partial_Y_pred_t**2).mean()
+	Y_orig_pred = classifier(X, U)
+	pred_loss = classifier_loss_fn(Y_pred, Y).mean() + lambda_GI*classifier_loss_fn(Y_orig_pred, Y).mean()
 	pred_loss.backward()
 	
 	classifier_optimizer.step()
@@ -260,34 +263,32 @@ class GradRegTrainer():
 		self.seed = args.seed
 
 
-	def train_classifier(self,past_dataset=None,encoder=None):
-			'''Train the classifier initially
+	def train_classifier(self, past_dataset=None, encoder=None):
+		'''Train the classifier initially
+		
+		In its current form the function just trains a baseline model on the entire train data
+		
+		Keyword Arguments:
+			past_dataset {[type]} -- If this is not None, then the `past_dataset` is used to train the model (default: {None})
+			encoder {[type]} -- Encoder model to train (default: {None})
+		'''
+		class_step = 0
+		past_data = ClassificationDataSet(indices=self.cumulative_data_indices[-1], **self.dataset_kwargs)
+		past_dataset = torch.utils.data.DataLoader((past_data), self.BATCH_SIZE, True)
+		for epoch in range(self.CLASSIFIER_EPOCHS):
 			
-			In its current form the function just trains a baseline model on the entire train data
-			
-			Keyword Arguments:
-				past_dataset {[type]} -- If this is not None, then the `past_dataset` is used to train the model (default: {None})
-				encoder {[type]} -- Encoder model to train (default: {None})
-			'''
-			class_step = 0
-		# for i in range(len(self.source_domain_indices)):
-		# if past_dataset is None:
-			past_data = ClassificationDataSet(indices=self.cumulative_data_indices[-1],**self.dataset_kwargs)
-			past_dataset = torch.utils.data.DataLoader((past_data),self.BATCH_SIZE,True)
-			for epoch in range(self.CLASSIFIER_EPOCHS):
-				
-				class_loss = 0
-				for batch_X, batch_A, batch_U, batch_Y in tqdm(past_dataset):
+			class_loss = 0
+			for batch_X, batch_A, batch_U, batch_Y in tqdm(past_dataset):
 
-					# batch_X = torch.cat([batch_X,batch_U.view(-1,2)],dim=1)
+				# batch_X = torch.cat([batch_X,batch_U.view(-1,2)],dim=1)
+				l = train_classifier_batch(X=batch_X,dest_u=batch_U,dest_a=batch_A,Y=batch_Y,classifier=self.classifier,classifier_optimizer=self.classifier_optimizer,verbose=(class_step%20)==0,encoder=encoder, batch_size=self.BATCH_SIZE,loss_fn=self.classifier_loss_fn)
+				#print('Loss:: ', l.item)
+				class_step += 1
+				class_loss += l
+				self.writer.add_scalar("loss/classifier",l.item(),class_step)
+			print("Epoch %d Loss %f"%(epoch,class_loss),flush=False)
 
-					l = train_classifier_batch(X=batch_X,dest_u=batch_U,dest_a=batch_U,Y=batch_Y,classifier=self.classifier,classifier_optimizer=self.classifier_optimizer,verbose=(class_step%20)==0,encoder=encoder, batch_size=self.BATCH_SIZE,loss_fn=self.classifier_loss_fn)
-					class_step += 1
-					class_loss += l
-					self.writer.add_scalar("loss/classifier",l.item(),class_step)
-				print("Epoch %d Loss %f"%(epoch,class_loss),flush=False)
-
-			# past_dataset = None
+		# past_dataset = None
 
 	def finetune_grad_int(self, num_domains=2):
 		'''Finetunes using gradient interpolation
@@ -299,7 +300,8 @@ class GradRegTrainer():
 		dom_indices = np.arange(len(self.source_domain_indices)).astype('int')[-1*num_domains:]
 
 		for i in dom_indices:
-			self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(),5e-4)
+
+			#self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(),5e-4)
 			past_data = ClassificationDataSet(indices=self.source_data_indices[i],**self.dataset_kwargs)
 			past_dataset = torch.utils.data.DataLoader((past_data),self.BATCH_SIZE,True)
 			
@@ -312,9 +314,6 @@ class GradRegTrainer():
 			bad_ep = 0
 			prev_net_val_loss = 1000000000
 
-			# print('Finetuning step %d Domain %d' %(ii, index))
-			# ii+=1
-			# print('------------------------------------------------------------------------------------------')
 			step = 0
 			for epoch in range(self.FINETUNING_EPOCHS):
 				
@@ -358,31 +357,36 @@ class GradRegTrainer():
 
 		if self.data == "house":
 			self.dataset_kwargs["drop_cols_classifier"] = None
-		td = ClassificationDataSet(indices=self.target_indices,**self.dataset_kwargs)
-		target_dataset = torch.utils.data.DataLoader(td,self.BATCH_SIZE,self.shuffle,drop_last=False)
+
+		target_data = ClassificationDataSet(indices=self.target_indices, **self.dataset_kwargs)
+		target_dataset = torch.utils.data.DataLoader(target_data, self.BATCH_SIZE, self.shuffle, drop_last=False)
 		Y_pred = []
 		Y_label = []
-		for batch_X, batch_A,batch_U, batch_Y in target_dataset:
+		for batch_X, batch_A, batch_U, batch_Y in target_dataset:
 			batch_U = batch_U.view(-1,1)
 			if self.encoder is not None:
 				batch_X = self.encoder(batch_X)
 			batch_Y_pred = self.classifier(batch_X, batch_U).detach().cpu().numpy()
+			
 			# print(batch_Y_pred.shape)
 			if self.task == 'classification':
 				if batch_Y_pred.shape[1] > 1:
-					Y_pred = Y_pred + [np.argmax(batch_Y_pred,axis=1)]
+					Y_pred = Y_pred + list(np.argmax(batch_Y_pred, axis=1))
 				else:
 					Y_pred = Y_pred + [(batch_Y_pred>0.5)*1.0]
 
-				Y_label = Y_label + [batch_Y.detach().cpu().numpy()]
+				Y_label = Y_label + list(batch_Y.detach().cpu().numpy())
 			elif self.task == 'regression':
 				Y_pred = Y_pred + [batch_Y_pred.reshape(-1,1)]
 				Y_label = Y_label + [batch_Y.detach().cpu().numpy().reshape(-1,1)]
 		print(len(Y_pred),len(Y_label))
 		# print(Y_pred[0].shape,Y_label[0].shape)
 		if self.task == 'classification':
-			Y_pred = np.hstack(Y_pred)
-			Y_label = np.hstack(Y_label)
+			Y_pred = np.vstack(Y_pred)
+			Y_label = np.vstack(Y_label)
+
+			
+			print(Y_pred.shape, Y_label.shape)
 			print('shape: ',Y_pred.shape)
 			print(accuracy_score(Y_label, Y_pred))
 			print(confusion_matrix(Y_label, Y_pred))
@@ -433,6 +437,9 @@ class GradRegTrainer():
 	def train(self):
 
 		
+		print('='*100)
+		print("Training Classifier")
+		print('='*100)
 		self.train_classifier(encoder=self.encoder)  # Train classifier initially
 		# torch.save(self.classifier.state_dict(), "classifier.pth")
 		# self.classifier.load_state_dict(torch.load("classifier_time_huge.pth"))      
@@ -443,7 +450,7 @@ class GradRegTrainer():
 		print("-----------------------------------------")
 		print("Performance of the base classifier")
 		self.eval_classifier()
-		self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(),self.lr)
+		self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(), self.lr/10)
 		self.finetune_grad_int(num_domains=self.num_finetune_domains)
 		# self.visualize_trajectory(vis_ind[:9],"plots/{}_{}".format(self.seed,self.delta))
 		

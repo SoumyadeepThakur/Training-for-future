@@ -29,10 +29,11 @@ class ClassificationDataSet(torch.utils.data.Dataset):
     def __getitem__(self,idx):
 
         index = self.indices[idx]
+        #print(self.indices)
         data = torch.tensor(self.X[index]).float().to(self.device)   # Check if we need to reshape
         label = torch.tensor(self.Y[index]).long().to(self.device)
-        auxiliary = torch.tensor(self.A[index]).float().to(self.device).view(-1, 1)
-        domain = torch.tensor(self.U[index]).float().to(self.device).view(-1, 1)
+        auxiliary = torch.tensor(self.A[index]).float().to(self.device)#.view(-1, 1)
+        domain = torch.tensor(self.U[index]).float().to(self.device)#.view(-1, 1)
 
         if self.drop_cols is not None:
             return data[:self.drop_cols], auxiliary, domain, label

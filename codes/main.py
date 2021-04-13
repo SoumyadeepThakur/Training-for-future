@@ -6,8 +6,18 @@
 import argparse
 from trainer import *
 from preprocess import *
+import random
+import os
 
-device = "cuda:0"
+def seed_torch(seed):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed) 
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed) # if you are using multi-GPU.
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
 
 def main(args):
 
@@ -17,8 +27,8 @@ def main(args):
 		args.device = "cpu"
 
 	if args.preprocess:
+		print("Preprocessing ...")
 		if args.data == "mnist":
-			print("Preprocessing")
 			load_Rot_MNIST(args.encoder)
 		if args.data == "moons":
 			load_moons(args)
@@ -59,8 +69,6 @@ if __name__ == '__main__':
 	parser.add_argument('--preprocess',action='store_true',help="Do we pre-process the data?")
 	parser.add_argument('--encoder',action='store_true',help="Do we use encodings?")
 	parser.add_argument('--delta',default=0.0,type=float)
-	parser.add_argument('--seed',default=None)
-
 	
 	args = parser.parse_args()
 	main(args)

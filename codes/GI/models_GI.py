@@ -7,8 +7,6 @@ import torch.nn.functional as F
 def init_weights(m):
 	if type(m) == nn.Linear:
 		nn.init.kaiming_normal_(m.weight)
-		# nn.init.kaiming_normal_(m.bias)
-
 		m.bias.data.fill_(0.01)
 
 
@@ -27,13 +25,11 @@ class Time2Vec(nn.Module):
 		sine_shape = out_shape - linear_shape - dirac_shape
 		self.model_0 = nn.Linear(in_shape, linear_shape)
 		self.model_1 = nn.Linear(in_shape, sine_shape)
-		#self.model_2 = nn.Linear(in_shape, dirac_shape)
 
 	def forward(self, X):
 
 		te_lin = self.model_0(X)
 		te_sin = torch.sin(self.model_1(X))
-		#te_dir = torch.max(10, torch.exp(-(self.model_2(X))))
 		if len(te_lin.shape) == 3:
 			te_lin = te_lin.squeeze(1)
 		if len(te_sin.shape) == 3:
@@ -73,7 +69,7 @@ class TimeReLU(nn.Module):
 			alphas = self.model_alpha_1(self.model_alpha_0(times))
 		else:
 			alphas = 0.0
-		X = torch.where(X>thresholds,X-thresholds,alphas*(X-thresholds)+thresholds)
+		X = torch.where(X>thresholds,X,alphas*(X-thresholds)+thresholds)
 		return X
 
 class TimeReLUCNN(nn.Module):
@@ -83,32 +79,24 @@ class TimeReLUCNN(nn.Module):
 		super(TimeReLUCNN,self).__init__()
 		self.leaky = leaky
 		self.model_0 = nn.Linear(time_shape, 16)
-		#nn.init.kaiming_normal_(self.model_0.weight)
-		#nn.init.zeros_(self.model_0.bias)
+		
 		self.model_1 = nn.Linear(16, data_shape)
-		#nn.init.kaiming_normal_(self.model_1.weight)
-		#nn.init.zeros_(self.model_1.bias)
 		
 		self.time_dim = time_shape        
 
 		if self.leaky:
 			self.model_alpha_0 = nn.Linear(time_shape, 16)
-			#nn.init.kaiming_normal_(self.model_alpha_0.weight)
-			#nn.init.zeros_(self.model_alpha_0.bias)
+			
 			self.model_alpha_1 = nn.Linear(16, data_shape)
-			#nn.init.kaiming_normal_(self.model_alpha_1.weight)
-			#nn.init.zeros_(self.model_alpha_1.bias)
+			
 		
 		self.leaky = leaky
 		self.time_dim = time_shape
 	
 	def forward(self, X, times):
-		# times = X[:,-self.time_dim:]
+		
 		orig_shape = X.size()
-		# print(orig_shape)
-		#X = X.view(orig_shape[0],-1)
-		#if len(times.size()) == 3:
-		#    times = times.squeeze(2)
+		
 		
 		thresholds = self.model_1(F.relu(self.model_0(times)))
 		if self.leaky:
@@ -118,11 +106,9 @@ class TimeReLUCNN(nn.Module):
 
 		thresholds = thresholds[:,:,None,None]
 		alphas = alphas[:,:,None,None]
-		# print("Thresh",thresholds.shape,X.size())
+		
 		X = torch.where(X>thresholds,X-thresholds,alphas*(X-thresholds))
-		# print(X.size())
-		#print(X.shape)
-		#X = X.view(*list(orig_shape))
+		
 		return X
 
 
@@ -158,14 +144,14 @@ class PredictionModel(nn.Module):
 		nn.init.kaiming_normal_(self.layer_2.weight)
 		nn.init.zeros_(self.layer_2.bias)
 
-	def forward(self, X, times,logits=False):
+	def forward(self, X, times, logits=False):
 		
+		#print(X.shape, times.shape)
 		X = torch.cat([X, times], dim=1)
 		if self.using_t2v:
 			times = self.t2v(times)
 		X = self.relu_0(self.layer_0(X), times)
 		X = self.relu_1(self.layer_1(X), times)
-		#X = self.relu_2(self.layer_2(X), times)
 		X = self.layer_2(X)
 
 		if not logits:
@@ -280,8 +266,7 @@ class ResidualBlock(nn.Module):
 		self.downsample = downsample
 
 	def forward(self, x):
-		#print('Shapes')
-		#print(x.shape)
+		
 		residual = x
 		out = self.conv1(x)
 		out = self.bn1(out)
@@ -322,11 +307,6 @@ class ResNet(nn.Module):
 		
 		self.t2v = Time2Vec(1, self.time_shape)
 		
-		#self.relu_0 = TimeReLUCNN(16 * 28 * 28, self.time_shape, True)
-		#self.relu_1 = TimeReLUCNN(32 * 28 * 28, self.time_shape, True)
-		#self.relu_2 = TimeReLUCNN(32 * 14 * 14, self.time_shape, True)
-		#self.relu_3 = TimeReLUCNN(64 * 7 * 7, self.time_shape, True)
-
 		self.relu_conv1 = TimeReLUCNN(16, self.time_shape, True)
 		self.relu_conv2 = TimeReLUCNN(32, self.time_shape, True)
 		self.relu_conv3 = TimeReLUCNN(64, self.time_shape, True)
@@ -349,6 +329,7 @@ class ResNet(nn.Module):
 	def forward(self, x, times=None,logits=False):
 		#times_ = times.unsqueeze(2).repeat(1,28,28)[:, None, :, :]
 		#x = torch.cat([x, times_], dim=1)
+		print('----------', times.shape)
 		times = self.t2v(times)
 		times_ = self.fc_time(times)
 		out = self.conv(x)

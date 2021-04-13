@@ -5,10 +5,11 @@ This file saves all final datasets, which the dataloader shall read and give out
 import pandas as pd
 import numpy as np
 import math
-
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.impute import KNNImputer, SimpleImputer
 from datetime import datetime
 
-# from sklearn.datasets import make_classification, make_moons
+from sklearn.datasets import make_moons
 from torchvision.transforms.functional import rotate
 from torchvision.datasets.folder import  has_file_allowed_extension, is_image_file, IMG_EXTENSIONS, pil_loader, accimage_loader,default_loader
 from tqdm import tqdm 
@@ -21,10 +22,24 @@ from utils import *
 
 MOON_SAMPLES = 200
 ROTNIST_SAMPLES = 1000
+FIXED_SEED = 0
 
-def load_sleep(filename):
+def preprocess_sleep(X_data, base_domains):
+
+	X_all = np.vstack(X_data[:base_domains])
+	scaler = StandardScaler(copy=False)
+	scaler.fit(X_all)
+
+	for i in range(len(X_data)):
+		scaler.transform(X_data[i])
+
+	return X_data
+
+def load_sleep(filename, root="../../data"):
 
     domains = 5
+
+    processed_folder = os.path.join(root, 'Sleep', 'processed')
     
     df =  pd.read_csv(filename)
     df = df.drop(['rcrdtime'], axis=1)
@@ -47,7 +62,7 @@ def load_sleep(filename):
 
 
     X_data, Y_data, A_data, U_data = [], [], [], []
-    indices = []
+    all_indices = []
     index_len = 0
     ckpts = [50, 60, 70, 80, 90]
 
@@ -56,18 +71,15 @@ def load_sleep(filename):
         data_temp = df[df['age_s1'] <= ckpt]
         df = df[df['age_s1'] > ckpt]
         Y_temp = data_temp['Staging1'].values
-        Y_temp = np.eye(2)[Y_temp.astype(np.int32)]   # Can we change this to 0/1 labels 
-        #A_temp = (data_temp['age_s1'].values-39)/90
+        Y_temp = Y_temp.astype(np.int32)   # Can we change this to 0/1 labels 
+        
         A_temp = (data_temp['age_s1'].values-38)/90
         data_temp = data_temp.drop(['Staging1'], axis=1)
         X_temp = data_temp.drop(['Staging2', 'Staging3', 'Staging4', 'Staging5', 'age_s1', 'age_category_s1'], axis=1).values
         #U_temp = np.array([i]*X_temp.shape[0])*1.0/5
         U_temp = np.array([i+1]*X_temp.shape[0])*1.0/5
-        print(X_temp.shape)
-        print(Y_temp.shape)
-        print(A_temp.shape)
-        print(U_temp.shape)
-        indices.append(np.arange(index_len,index_len+X_temp.shape[0]))
+        
+        all_indices.append(list(range(index_len, index_len+X_temp.shape[0])))
         index_len += X_temp.shape[0]
 
         X_temp =X_temp.astype(np.float32)
@@ -79,13 +91,28 @@ def load_sleep(filename):
         A_data.append(A_temp)
         U_data.append(U_temp)
 
-    np.save(np.array(X_data))
-    np.save(np.array(Y_data))
-    np.save(np.array(A_data))
-    np.save(np.array(U_data))
+    X_data = preprocess_sleep(X_data, 4)
+    #np.save(np.array(X_data))
+    #np.save(np.array(Y_data))
+    #np.save(np.array(A_data))
+    #np.save(np.array(U_data))
     # Save indices
+    prev_idx = 0
+    print(np.hstack(Y_data).shape)
+    print(np.hstack(A_data).shape)
+    print(np.hstack(U_data).shape)
+    
+    #for i in range(len(Y_data)):
+    #    print(len(Y_data[i]))
+    os.makedirs("{}".format(processed_folder), exist_ok=True)
+    np.save("{}/X.npy".format(processed_folder), np.vstack(X_data), allow_pickle=True)
+    np.save("{}/Y.npy".format(processed_folder), np.hstack(Y_data).reshape(-1, 1), allow_pickle=True)
+    np.save("{}/A.npy".format(processed_folder), np.hstack(A_data).reshape(-1, 1), allow_pickle=True)
+    np.save("{}/U.npy".format(processed_folder), np.hstack(U_data).reshape(-1, 1), allow_pickle=True)
+    json.dump(all_indices, open("{}/indices.json".format(processed_folder),"w"))
 
-def load_moons(domains, root='../../data'):
+
+def load_moons(domains=11, root='../../data'):
 
     """
 
@@ -107,13 +134,13 @@ def load_moons(domains, root='../../data'):
 
         angle = i*math.pi/(domains-1)
 
-        X, Y = make_moons(n_samples=200, noise=0.1)
+        X, Y = make_moons(n_samples=MOON_SAMPLES, noise=0.1, random_state=FIXED_SEED)
         rot = np.array([[math.cos(angle), math.sin(angle)], [-math.sin(angle), math.cos(angle)]])
         X = np.matmul(X, rot)
 
-        Y = np.eye(2)[Y]  
-        U = np.array([i//domains] * 200)
-        A = np.array([i//domains] * 200)
+        #Y = np.eye(2)[Y]  
+        U = np.array([i//domains] * MOON_SAMPLES)
+        A = np.array([i//domains] * MOON_SAMPLES)
 
         X_data.append(X)
         Y_data.append(Y)
@@ -122,14 +149,14 @@ def load_moons(domains, root='../../data'):
 
     all_indices = [[x for x in range(i*MOON_SAMPLES,(i+1)*MOON_SAMPLES)] for i in range(domains)]
 
-    np.save("{}/X.npy".format(processed_folder), X_data, allow_pickle=True)
-    np.save("{}/Y.npy".format(processed_folder), Y_data, allow_pickle=True)
-    np.save("{}/A.npy".format(processed_folder), A_data, allow_pickle=True)
-    np.save("{}/U.npy".format(processed_folder), U_data, allow_pickle=True)
-    np.save("{}/indices.npy".format(processed_folder), all_indices, allow_pickle=True)
-    #json.dump(all_indices, open("{}/indices.json".format(processed_folder),"w"))
+    os.makedirs("{}".format(processed_folder), exist_ok=True)
+    np.save("{}/X.npy".format(processed_folder), np.vstack(X_data), allow_pickle=True)
+    np.save("{}/Y.npy".format(processed_folder), np.hstack(Y_data).reshape(-1, 1), allow_pickle=True)
+    np.save("{}/A.npy".format(processed_folder), np.hstack(A_data).reshape(-1, 1), allow_pickle=True)
+    np.save("{}/U.npy".format(processed_folder), np.hstack(U_data).reshape(-1, 1), allow_pickle=True)
+    json.dump(all_indices, open("{}/indices.json".format(processed_folder),"w"))
 
-def load_Rot_MNIST(use_vgg,root="../../data"):
+def load_Rot_MNIST(use_vgg, root="../../data"):
 
     mnist_ind = (np.arange(60000))
     np.random.shuffle(mnist_ind)
@@ -159,18 +186,18 @@ def load_Rot_MNIST(use_vgg,root="../../data"):
         else:
             image = image.reshape((1,28,28))
             # image = (image - vgg_means)/vgg_stds
-
+        I_y = np.eye(10)
         all_images.append(image)
         all_labels.append(targets[index])
-        all_U.append(bin/6)
-        all_A.append(angle/90)
+        all_U.append([bin/6])
+        all_A.append([angle/90])
 
-    np.save("{}/X.npy".format(processed_folder),np.stack(all_images),allow_pickle=True)
-    np.save("{}/Y.npy".format(processed_folder),np.array(all_labels),allow_pickle=True)
-    np.save("{}/A.npy".format(processed_folder),np.array(all_A),allow_pickle=True)
-    np.save("{}/U.npy".format(processed_folder),np.array(all_U),allow_pickle=True)
+    os.makedirs("{}".format(processed_folder), exist_ok=True)
+    np.save("{}/X.npy".format(processed_folder), np.stack(all_images),allow_pickle=True)
+    np.save("{}/Y.npy".format(processed_folder), np.array(all_labels),allow_pickle=True)
+    np.save("{}/A.npy".format(processed_folder), np.array(all_A),allow_pickle=True)
+    np.save("{}/U.npy".format(processed_folder), np.array(all_U),allow_pickle=True)
     json.dump( all_indices,open("{}/indices.json".format(processed_folder),"w"))
-    # json.dump(all_indices, open("{}/indices.json".format(processed_folder),"w"))
 
 
 def load_comp_cars(root_dir="../../data/CompCars", text_file="../../data/CompCars/adagraph_filtered.txt",out_size=(3,224,224)):

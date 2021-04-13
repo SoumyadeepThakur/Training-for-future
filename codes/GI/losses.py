@@ -11,7 +11,9 @@ def classification_loss(Y_pred, Y):
     # print(Y_new * torch.log(Y_pred+ 1e-15))
     return  -1.*torch.sum((Y_new * torch.log(Y_pred+ 1e-15)),dim=1)
 
-def bxe(Y_pred, Y):
+
+def binary_classification_loss(Y_pred, Y):
+    #print(Y, Y_pred)
     return -1.*((Y*torch.log(Y_pred+ 1e-15)) + ((1-Y)*torch.log(1-Y_pred + 1e-15)))
 
 def reconstruction_loss(x,y):
