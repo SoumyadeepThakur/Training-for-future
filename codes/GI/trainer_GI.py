@@ -24,7 +24,7 @@ np.set_printoptions(precision = 3)
 
 
 
-def train_classifier_batch(X, dest_u, dest_a, Y, classifier, classifier_optimizer, batch_size, verbose=False, encoder=None, transformer=None, source_u=None, kernel=None, loss_fn=classification_loss):
+def train_classifier_batch(X,dest_u,dest_a,Y,classifier,classifier_optimizer,batch_size,verbose=False,encoder=None, transformer=None,source_u=None, kernel=None,loss_fn=classification_loss):
 	'''Trains classifier on a batch
 	
 	
@@ -53,12 +53,12 @@ def train_classifier_batch(X, dest_u, dest_a, Y, classifier, classifier_optimize
 	else:
 		X_pred = X
 
-	Y_pred = classifier(X_pred, dest_a)
+	Y_pred = classifier(X_pred,dest_a)
 	pred_loss = loss_fn(Y_pred, Y)
 
 	# if verbose:
-	# 	with torch.no_grad():
-	# 		print(torch.cat([Y_pred[:20],Y[:20].view(-1,1).float(),pred_loss[:20].view(-1,1)],dim=1).detach().cpu().numpy(),file=log)
+	#   with torch.no_grad():
+	#       print(torch.cat([Y_pred[:20],Y[:20].view(-1,1).float(),pred_loss[:20].view(-1,1)],dim=1).detach().cpu().numpy(),file=log)
 
 	if kernel is not None:
 		pred_loss = pred_loss * kernel
@@ -111,7 +111,7 @@ def finetune(X, U, Y, delta, classifier, classifier_optimizer,classifier_loss_fn
 	return pred_loss
 
 
-def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer, classifier_loss_fn, delta_lr=0.1, delta_clamp=0.15, delta_steps=10, lambda_GI=0.5,writer=None, step=None, string=None):
+def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer,classifier_loss_fn,delta_lr=0.1,delta_clamp=0.15,delta_steps=10,lambda_GI=0.5,writer=None,step=None,string=None):
 	
 	classifier_optimizer.zero_grad()
 	
@@ -134,14 +134,15 @@ def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer, class
 				logit = Y_pred[:,idx].view(-1,1)
 				partial_logit_pred_t.append(torch.autograd.grad(logit, U_grad, grad_outputs=torch.ones_like(logit), retain_graph=True)[0])
 
-				partial_Y_pred_t = torch.cat(partial_logit_pred_t, dim=1)
+			
+				partial_Y_pred_t = torch.cat(partial_logit_pred_t, 1)
 
 
 		# partial_Y_pred_t = torch.autograd.grad(Y_pred, U_grad, grad_outputs=torch.ones_like(Y_pred), retain_graph=True)[0]
 		Y_pred = Y_pred + delta * partial_Y_pred_t
-		if len(Y_pred.shape) > 1 and Y_pred.shape[1] > 1:
-			Y_pred = torch.softmax(Y_pred, dim=-1)
-		
+		if len(Y_pred.shape)>1 and Y_pred.shape[1] > 1:
+			Y_pred = torch.softmax(Y_pred,dim=-1)
+		# loss = -torch.mean(Y_true * torch.log(Y_pred + 1e-9))
 		loss = classifier_loss_fn(Y_pred,Y)
 		partial_loss_delta = torch.autograd.grad(loss, delta, grad_outputs=torch.ones_like(loss), retain_graph=True)[0]
 		delta = delta + delta_lr*partial_loss_delta
@@ -151,7 +152,8 @@ def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer, class
 	delta = delta.clamp(-1*delta_clamp, delta_clamp).detach().clone()
 	# print(step,writer is not None)
 	if writer is not None:
-		writer.add_histogram(string,delta.view(1,-1),step)
+		writer.add_scalar(string,torch.abs(delta).mean(),step)
+		writer.add_scalar(string+"_grad",torch.abs(partial_loss_delta).mean(),step)
 
 	# This block of code actually optimizes our model
 	U_grad = U.clone() - delta
@@ -160,7 +162,7 @@ def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer, class
 
 	partial_logit_pred_t = []
 
-	if len(Y_pred.shape) < 2 or Y_pred.shape[1] < 2:
+	if len(Y_pred.shape)<2 or Y_pred.shape[1] < 2:
 		partial_Y_pred_t = torch.autograd.grad(Y_pred, U_grad, grad_outputs=torch.ones_like(Y_pred), retain_graph=True)[0]
 	else:
 		for idx in range(Y_pred.shape[1]):
@@ -173,22 +175,16 @@ def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer, class
 	#print(partial_Y_pred_t.shape)
 	# partial_Y_pred_t = torch.autograd.grad(Y_pred, U_grad, grad_outputs=torch.ones_like(Y_pred), retain_graph=True)[0]
 	Y_pred = Y_pred + delta * partial_Y_pred_t
-	
-	if len(Y_pred.shape) > 1 and Y_pred.shape[1] > 1:
-		Y_pred = torch.softmax(Y_pred, dim=-1)
-
-	else:
-		Y_pred = torch.sigmoid(Y_pred)
-
-	
+	if len(Y_pred.shape)>1 and Y_pred.shape[1] > 1:
+		Y_pred = torch.softmax(Y_pred,dim=-1)
 	# Y_true = Y
 	#Y_true = torch.argmax(Y, 1).view(-1,1).float()
 
 	
 	# pred_loss = -torch.mean(Y_true * torch.log(Y_pred + 1e-9))# + (1 - Y_true) * torch.log(1 - Y_pred + 1e-9))
 	#pred_loss = torch.mean((Y_pred - Y_true)**2)
-	Y_orig_pred = classifier(X, U)
-	pred_loss = classifier_loss_fn(Y_pred, Y).mean() + lambda_GI*classifier_loss_fn(Y_orig_pred, Y).mean()
+	Y_orig_pred = classifier(X,U)
+	pred_loss = classifier_loss_fn(Y_pred,Y).mean() + lambda_GI*classifier_loss_fn(Y_orig_pred,Y).mean() #+ 5*(partial_Y_pred_t**2).mean()
 	pred_loss.backward()
 	
 	classifier_optimizer.step()
@@ -196,6 +192,38 @@ def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer, class
 	return pred_loss
 
 
+def adversarial_finetune_goodfellow(X, U, Y, delta, classifier, classifier_optimizer,classifier_loss_fn,delta_lr=0.1,delta_clamp=0.15,delta_steps=10,lambda_GI=0.5,writer=None,step=None,string=None):
+	
+	classifier_optimizer.zero_grad()
+	
+	delta.requires_grad_(True)
+	
+	for ii in range(delta_steps):
+
+		U_grad = U.clone() + delta
+		U_grad.requires_grad_(True)
+		Y_pred = classifier(X, U_grad)
+
+		loss = classifier_loss_fn(Y_pred,Y).mean()
+		partial_loss_delta = torch.autograd.grad(loss, delta, grad_outputs=torch.ones_like(loss), retain_graph=True)[0]
+
+		delta = delta + delta_lr*partial_loss_delta
+		#print('%d %f' %(ii, delta.clone().detach().numpy()))
+	
+	delta = delta.clamp(-1*delta_clamp, delta_clamp)
+	delta = delta.detach()
+	U_grad = U.clone() + delta
+	U_grad.requires_grad_(True)
+	Y_pred = classifier(X, U_grad)
+
+	
+	pred_loss = classifier_loss_fn(Y_pred,Y).mean()# + (1 - Y_true) * torch.log(1 - Y_pred + 1e-9))
+	#pred_loss = torch.mean((Y_pred - Y_true)**2)
+	pred_loss.backward()
+	
+	classifier_optimizer.step()
+
+	return pred_loss
 
 # It is possible that the gains are due to "finetuning" and not due to the gradient regularization
 # Multi-step ideas
@@ -208,9 +236,17 @@ class GradRegTrainer():
 	def __init__(self,args):
 
 		# self.DataSet = MetaDataset
+		if args.model == "baseline":
+			from config_baseline import Config
+			config = Config(args)
+		elif args.model == "tbaseline" or args.model == "goodfellow" or args.model == "inc_finetune":
+			from config_tbaseline import Config
+			config = Config(args)
+		elif args.model == "GI" or args.model == "t_inc_finetune" or args.model == "t_goodfellow" or args.model == "t_GI":
+			from config_GI import Config
+			config = Config(args)
 
-		config = Config(args)
-	
+		#self.goodfellow = args.goodfellow
 		self.DataSetClassifier = ClassificationDataSet
 		self.CLASSIFIER_EPOCHS = config.epoch_classifier
 		self.FINETUNING_EPOCHS = config.epoch_finetune 
@@ -219,9 +255,10 @@ class GradRegTrainer():
 		self.CLASSIFICATION_BATCH_SIZE = 100
 		# self.PRETRAIN_EPOCH = 5
 		self.data = args.data 
+		self.model = args.model
 		self.update_num_steps = 1
 
-		self.writer = SummaryWriter(comment='{}'.format(time.time()),log_dir="new_runs")
+		self.writer = SummaryWriter(comment='{}-{}-{}'.format(time.time(),self.model,self.data),log_dir="new_runs")
 
 
 		self.dataset_kwargs = config.dataset_kwargs
@@ -230,11 +267,15 @@ class GradRegTrainer():
 		data_index_file = config.data_index_file    #"../../data/HousePrice/indices.json"
 		self.classifier = config.classifier(**config.model_kwargs).to(args.device) 
 		self.lr = config.lr
+		self.lr_reduce = config.lr_reduce
 		self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(),config.lr)
 		# loss_type = 'bce' if self.dataset_kwargs['return_binary'] else 'reg'
 		
 		self.classifier_loss_fn = config.classifier_loss_fn   #reconstruction_loss
 		self.task = config.loss_type
+
+
+		self.inc_finetune = self.model in ["inc_finetune","t_inc_finetune", "t_GI"]
 		
 		if args.encoder:
 			self.encoder = config.encoder(**config.encoder_kwargs).to(args.device)
@@ -257,13 +298,10 @@ class GradRegTrainer():
 		self.delta  = args.delta
 		self.patience = 2
 		self.early_stopping = args.early_stopping
-		if args.seed is not None:
-			torch.random.manual_seed(int(args.seed))
-			np.random.seed(int(args.seed))
 		self.seed = args.seed
 
 
-	def train_classifier(self, past_dataset=None, encoder=None):
+	def train_classifier(self,past_dataset=None,encoder=None,inc_finetune=False):
 		'''Train the classifier initially
 		
 		In its current form the function just trains a baseline model on the entire train data
@@ -272,23 +310,42 @@ class GradRegTrainer():
 			past_dataset {[type]} -- If this is not None, then the `past_dataset` is used to train the model (default: {None})
 			encoder {[type]} -- Encoder model to train (default: {None})
 		'''
-		class_step = 0
-		past_data = ClassificationDataSet(indices=self.cumulative_data_indices[-1], **self.dataset_kwargs)
-		past_dataset = torch.utils.data.DataLoader((past_data), self.BATCH_SIZE, True)
-		for epoch in range(self.CLASSIFIER_EPOCHS):
-			
-			class_loss = 0
-			for batch_X, batch_A, batch_U, batch_Y in tqdm(past_dataset):
+		if not self.inc_finetune:
+			class_step = 0
+			# for i in range(len(self.source_domain_indices)):
+			# if past_dataset is None:
+			past_data = ClassificationDataSet(indices=self.cumulative_data_indices[-1],**self.dataset_kwargs)
+			past_dataset = torch.utils.data.DataLoader((past_data),self.BATCH_SIZE,True)
+			for epoch in range(self.CLASSIFIER_EPOCHS):
+				class_loss = 0
+				for batch_X, batch_A, batch_U, batch_Y in past_dataset:
 
-				# batch_X = torch.cat([batch_X,batch_U.view(-1,2)],dim=1)
-				l = train_classifier_batch(X=batch_X,dest_u=batch_U,dest_a=batch_A,Y=batch_Y,classifier=self.classifier,classifier_optimizer=self.classifier_optimizer,verbose=(class_step%20)==0,encoder=encoder, batch_size=self.BATCH_SIZE,loss_fn=self.classifier_loss_fn)
-				#print('Loss:: ', l.item)
-				class_step += 1
-				class_loss += l
-				self.writer.add_scalar("loss/classifier",l.item(),class_step)
-			print("Epoch %d Loss %f"%(epoch,class_loss),flush=False)
+					# batch_X = torch.cat([batch_X,batch_U.view(-1,2)],dim=1)
+					l = train_classifier_batch(X=batch_X,dest_u=batch_U,dest_a=batch_U,Y=batch_Y,classifier=self.classifier,classifier_optimizer=self.classifier_optimizer,verbose=(class_step%20)==0,encoder=encoder, batch_size=self.BATCH_SIZE,loss_fn=self.classifier_loss_fn)
+					class_step += 1
+					class_loss += l
+					self.writer.add_scalar("loss/classifier",l.item(),class_step)
+				print("Epoch %d Loss %f"%(epoch,class_loss/len(past_data)),flush=False)
+			# past_dataset = None
+		else:
+			class_step = 0
+			for i in range(len(self.source_domain_indices)):
+			# if past_dataset is None:
+				# self.classifier_optimizer
+				past_data = ClassificationDataSet(indices=self.source_data_indices[i],**self.dataset_kwargs)
+				past_dataset = torch.utils.data.DataLoader((past_data),self.BATCH_SIZE,True)
+				for epoch in range(int(self.CLASSIFIER_EPOCHS*(1-(i/10)))):
+					class_loss = 0
+					for batch_X, batch_A, batch_U, batch_Y in tqdm(past_dataset):
 
-		# past_dataset = None
+						# batch_X = torch.cat([batch_X,batch_U.view(-1,2)],dim=1)
+
+						l = train_classifier_batch(X=batch_X,dest_u=batch_U,dest_a=batch_U,Y=batch_Y,classifier=self.classifier,classifier_optimizer=self.classifier_optimizer,verbose=(class_step%20)==0,encoder=encoder, batch_size=self.BATCH_SIZE,loss_fn=self.classifier_loss_fn)
+						class_step += 1
+						class_loss += l
+						self.writer.add_scalar("loss/classifier",l.item(),class_step)
+					print("Epoch %d Loss %f"%(epoch,class_loss/len(past_data)),flush=False)
+
 
 	def finetune_grad_int(self, num_domains=2):
 		'''Finetunes using gradient interpolation
@@ -300,8 +357,7 @@ class GradRegTrainer():
 		dom_indices = np.arange(len(self.source_domain_indices)).astype('int')[-1*num_domains:]
 
 		for i in dom_indices:
-
-			#self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(),5e-4)
+			self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(),5e-4)
 			past_data = ClassificationDataSet(indices=self.source_data_indices[i],**self.dataset_kwargs)
 			past_dataset = torch.utils.data.DataLoader((past_data),self.BATCH_SIZE,True)
 			
@@ -314,6 +370,9 @@ class GradRegTrainer():
 			bad_ep = 0
 			prev_net_val_loss = 1000000000
 
+			# print('Finetuning step %d Domain %d' %(ii, index))
+			# ii+=1
+			# print('------------------------------------------------------------------------------------------')
 			step = 0
 			for epoch in range(self.FINETUNING_EPOCHS):
 				
@@ -321,9 +380,14 @@ class GradRegTrainer():
 				for batch_X, _, batch_U, batch_Y in tqdm(past_dataset):
 
 					batch_U = batch_U.view(-1,1)
-					delta = (torch.rand(batch_U.size()).float()*(0.1-(-0.1)) - 0.1).to(batch_X.device)
-					# TODO pass delta hyperparams here
-					l = adversarial_finetune(batch_X, batch_U, batch_Y, delta, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i))
+					if self.model == "goodfellow" or self.model == "t_goodfellow":
+						delta = (torch.zeros((1,)).float()).to(batch_X.device)
+						# TODO pass delta hyperparams here
+						l = adversarial_finetune_goodfellow(batch_X, batch_U, batch_Y, delta, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i))
+					else:
+						delta = (torch.rand((1,)).float()*(0.1-(-0.1)) - 0.1).to(batch_X.device)
+						# TODO pass delta hyperparams here
+						l = adversarial_finetune(batch_X, batch_U, batch_Y, delta, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i))
 					loss = loss + l
 					self.writer.add_scalar("loss/test_{}".format(i),l.item(),step)
 					step += 1
@@ -353,51 +417,47 @@ class GradRegTrainer():
 						break
 
 
-	def eval_classifier(self):
+	def eval_classifier(self,log):
 
 		if self.data == "house":
 			self.dataset_kwargs["drop_cols_classifier"] = None
-
-		target_data = ClassificationDataSet(indices=self.target_indices, **self.dataset_kwargs)
-		target_dataset = torch.utils.data.DataLoader(target_data, self.BATCH_SIZE, self.shuffle, drop_last=False)
+		self.classifier.eval()
+		td = ClassificationDataSet(indices=self.target_indices,**self.dataset_kwargs)
+		target_dataset = torch.utils.data.DataLoader(td,self.BATCH_SIZE,False,drop_last=False)
 		Y_pred = []
 		Y_label = []
-		for batch_X, batch_A, batch_U, batch_Y in target_dataset:
+		for batch_X, batch_A,batch_U, batch_Y in target_dataset:
 			batch_U = batch_U.view(-1,1)
 			if self.encoder is not None:
 				batch_X = self.encoder(batch_X)
 			batch_Y_pred = self.classifier(batch_X, batch_U).detach().cpu().numpy()
-			
-			# print(batch_Y_pred.shape)
 			if self.task == 'classification':
 				if batch_Y_pred.shape[1] > 1:
-					Y_pred = Y_pred + list(np.argmax(batch_Y_pred, axis=1))
+					Y_pred = Y_pred + [np.argmax(batch_Y_pred,axis=1).reshape((-1,1))]
 				else:
 					Y_pred = Y_pred + [(batch_Y_pred>0.5)*1.0]
 
-				Y_label = Y_label + list(batch_Y.detach().cpu().numpy())
+				# if batch_Y.shape[1] > 1:
+				#   Y_label = Y_label + [np.argmax(batch_Y.detach().cpu().numpy(),axis=1).reshape((batch_Y_pred.shape[0],1))]
+				# else:
+				Y_label = Y_label + [batch_Y.detach().cpu().numpy()]
 			elif self.task == 'regression':
 				Y_pred = Y_pred + [batch_Y_pred.reshape(-1,1)]
 				Y_label = Y_label + [batch_Y.detach().cpu().numpy().reshape(-1,1)]
-		print(len(Y_pred),len(Y_label))
-		# print(Y_pred[0].shape,Y_label[0].shape)
 		if self.task == 'classification':
 			Y_pred = np.vstack(Y_pred)
-			Y_label = np.vstack(Y_label)
-
-			
-			print(Y_pred.shape, Y_label.shape)
-			print('shape: ',Y_pred.shape)
-			print(accuracy_score(Y_label, Y_pred))
-			print(confusion_matrix(Y_label, Y_pred))
-			print(classification_report(Y_label, Y_pred))    
+			Y_label = np.hstack(Y_label)
+			print('shape: ',Y_pred.shape, Y_label.shape)
+			print('Accuracy: ',accuracy_score(Y_label, Y_pred),file=log)
+			print(confusion_matrix(Y_label, Y_pred),file=log)
+			print(classification_report(Y_label, Y_pred),file=log)    
 		else:
 			Y_pred = np.vstack(Y_pred)
 			Y_label = np.vstack(Y_label)
 			# print(np.hstack([Y_pred,Y_label]))
 			print(Y_pred.shape,Y_label.shape)
-			print('MAE: ',np.mean(np.abs(Y_label-Y_pred),axis=0))
-			print('MSE: ',np.mean((Y_label-Y_pred)**2,axis=0))
+			print('MAE: ',np.mean(np.abs(Y_label-Y_pred),axis=0),file=log)
+			print('MSE: ',np.mean((Y_label-Y_pred)**2,axis=0),file=log)
 
 
 	def visualize_trajectory(self,indices,filename=''):
@@ -442,27 +502,25 @@ class GradRegTrainer():
 		print('='*100)
 		self.train_classifier(encoder=self.encoder)  # Train classifier initially
 		# torch.save(self.classifier.state_dict(), "classifier.pth")
+		# print("Loading")
 		# self.classifier.load_state_dict(torch.load("classifier_time_huge.pth"))      
 		# vis_ind = np.array(self.cumulative_data_indices[-1])
 		# np.random.shuffle(vis_ind)
 		# vis_ind = [self.source_data_indices[0][3], self.source_data_indices[1][47], self.source_data_indices[2][102], self.source_data_indices[2][210], self.source_data_indices[3][168], self.source_data_indices[3][342], self.source_data_indices[4][42], self.source_data_indices[4][44],self.source_data_indices[4][189]]
 		# self.visualize_trajectory(vis_ind[:9],"plots/{}_{}_base".format(self.seed,self.delta))
-		print("-----------------------------------------")
-		print("Performance of the base classifier")
-		self.eval_classifier()
-		self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(), self.lr/10)
-		self.finetune_grad_int(num_domains=self.num_finetune_domains)
-		# self.visualize_trajectory(vis_ind[:9],"plots/{}_{}".format(self.seed,self.delta))
+		log = open("results_{}_{}.txt".format(self.model,self.data),"a")
+		print("#####################################",file=log)
+		print("Performance of the base classifier",file=log)
+		self.eval_classifier(log=log)
+		self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(),self.lr/self.lr_reduce)
+		if self.model == "GI" or self.model == "goodfellow" or self.model == "t_goodfellow" or self.model == "t_GI":
+
+			print('='*100)
+			print("Finetuning Classifier")
+			print('='*100)
+			self.finetune_grad_int(num_domains=self.num_finetune_domains)
+			print("Performance after fine-tuning",file=log)
+			self.eval_classifier(log=log)
+				# self.visualize_trajectory(vis_ind[:9],"plots/{}_{}_{}".format(self.seed,self.delta,self.goodfellow))
 		
-		print("-----------------------------------------")
-		print("Performance after fine-tuning")
-		self.eval_classifier()
-
-
-
-'''Game plan
-
-We need to have all dataloaders give out tensors, take away numpy array stuff from train loop.
-Break down train loop into multiple functions as well.
-We give only time, X to all models. This will make stuff compatible. We then change the models to do appropriate things.
-'''
+		# print("-----------------------------------------",file=log)

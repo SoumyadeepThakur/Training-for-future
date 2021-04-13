@@ -23,7 +23,7 @@ class Config():
 			self.data_index_file = "../../data/HousePrice/indices.json"
 			from models_GI import ClassifyNetHuge
 			self.classifier = ClassifyNetHuge 
-			self.model_kwargs =  {'time_conditioning':True,'task':'regression','use_time2vec':True,'leaky':True,"input_shape":31,"hidden_shapes":[400,400,400],"output_shape":1,'append_time':True}
+			self.model_kwargs =  {'time_conditioning':False,'task':'regression','use_time2vec':False,'leaky':False,"input_shape":30,"hidden_shapes":[400,400,400],"output_shape":1,'append_time':False}
 			self.lr = 5e-4
 			self.classifier_loss_fn = reconstruction_loss
 			self.loss_type = 'regression'
@@ -58,15 +58,15 @@ class Config():
 
 		if args.data == 'moons':
 
-			self.dataset_kwargs = {"root_dir":"../../data/Moons/processed", "device":args.device, "drop_cols":None}
+			self.dataset_kwargs = {"root_dir":"../../data/Moons/processed","device":args.device, "drop_cols":None}
 			self.source_domain_indices = [0,1, 2, 3, 4, 5, 6, 7, 8]
 			self.target_domain_indices = [9]
 			self.data_index_file = "../../data/Moons/processed/indices.json"
 			from models_GI import PredictionModel
 			self.classifier = PredictionModel
-			self.model_kwargs =  {"input_shape":3, "hidden_shapes":[6, 6], "out_shape":1, "time_conditioning": True, "use_time2vec":True, 
-									"leaky":True, "regression": False}
-			self.lr = 5e-3
+			self.model_kwargs =  {"input_shape":2, "hidden_shapes":[6, 6], "out_shape":1, "time_conditioning": False, "use_time2vec":False, 
+									"leaky":False, "regression": False}
+			self.lr = 1e-3
 			self.classifier_loss_fn = binary_classification_loss
 			self.loss_type = 'classification'
 			self.encoder = None
@@ -74,5 +74,8 @@ class Config():
 			self.delta_lr=0.05
 			self.delta_clamp=0.5
 			self.delta_steps=5
-			self.lambda_GI=0.0
+			self.lambda_GI=1.0
 			self.lr_reduce=20.0
+
+
+
