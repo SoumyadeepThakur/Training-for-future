@@ -504,10 +504,10 @@ class GradRegTrainer():
 		# torch.save(self.classifier.state_dict(), "classifier.pth")
 		# print("Loading")
 		# self.classifier.load_state_dict(torch.load("classifier_time_huge.pth"))      
-		# vis_ind = np.array(self.cumulative_data_indices[-1])
-		# np.random.shuffle(vis_ind)
-		# vis_ind = [self.source_data_indices[0][3], self.source_data_indices[1][47], self.source_data_indices[2][102], self.source_data_indices[2][210], self.source_data_indices[3][168], self.source_data_indices[3][342], self.source_data_indices[4][42], self.source_data_indices[4][44],self.source_data_indices[4][189]]
-		# self.visualize_trajectory(vis_ind[:9],"plots/{}_{}_base".format(self.seed,self.delta))
+		#vis_ind = np.array(self.cumulative_data_indices[-1])
+		#np.random.shuffle(vis_ind)
+		#vis_ind = [self.source_data_indices[0][3], self.source_data_indices[1][47], self.source_data_indices[2][102], self.source_data_indices[2][210], self.source_data_indices[3][168], self.source_data_indices[3][342], self.source_data_indices[4][42], self.source_data_indices[4][44],self.source_data_indices[4][189]]
+		#self.visualize_trajectory(vis_ind[:9],"plots/{}_{}_base".format(self.seed,self.delta))
 		log = open("results_{}_{}.txt".format(self.model,self.data),"a")
 		print("#####################################",file=log)
 		print("Performance of the base classifier",file=log)
@@ -521,6 +521,6 @@ class GradRegTrainer():
 			self.finetune_grad_int(num_domains=self.num_finetune_domains)
 			print("Performance after fine-tuning",file=log)
 			self.eval_classifier(log=log)
-				# self.visualize_trajectory(vis_ind[:9],"plots/{}_{}_{}".format(self.seed,self.delta,self.goodfellow))
+			#self.visualize_trajectory(vis_ind[:9],"plots/{}_{}_{}".format(self.seed,self.delta,self.goodfellow))
 		
 		# print("-----------------------------------------",file=log)

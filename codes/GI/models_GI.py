@@ -440,9 +440,12 @@ class ResNet(nn.Module):
 	def __init__(self, block, layers, output_dim=10,**kwargs):
 		super(ResNet, self).__init__()
 
-		use_t2v = kwargs['use_time2vec'] if kwargs.get('use_time2vec') else False
+		self.time_conditioning = kwargs['time_conditioning'] if kwargs.get('time_conditioning') else False
+		self.leaky = kwargs['leaky'] if kwargs.get('leaky') else False
+		self.append_time = kwargs['append_time'] if kwargs.get('append_time') else False
+		self.use_t2v = kwargs['use_time2vec'] if kwargs.get('use_time2vec') else False
 
-		if use_t2v:
+		if self.use_t2v:
 			self.time_shape = 16
 		else:
 			self.time_shape = 1
@@ -470,16 +473,12 @@ class ResNet(nn.Module):
 		self.fc2 = nn.Linear(256, 10)
 		
 
-		if use_t2v:
+		if self.use_t2v:
 			self.t2v = Time2Vec(1, self.time_shape)
 		else:
 			self.time_shape = 1
 			self.t2v = None
 		
-		#self.relu_0 = TimeReLUCNN(16 * 28 * 28, self.time_shape, True)
-		#self.relu_1 = TimeReLUCNN(32 * 28 * 28, self.time_shape, True)
-		#self.relu_2 = TimeReLUCNN(32 * 14 * 14, self.time_shape, True)
-		#self.relu_3 = TimeReLUCNN(64 * 7 * 7, self.time_shape, True)
 		self.use_time_relu = kwargs['time_conditioning'] if kwargs.get('time_conditioning') else False
 		self.relu_conv1 = TimeReLUCNN(16, self.time_shape, True,self.use_time_relu)
 		self.relu_conv2 = TimeReLUCNN(32, self.time_shape, True,self.use_time_relu)
@@ -510,19 +509,35 @@ class ResNet(nn.Module):
 		out = self.conv(x)
 		out = self.bn(out)
 		out = self.layer1(out)
-		out = self.relu_conv1(out, times)
+		
+		if self.time_conditioning:
+			out = self.relu_conv1(out, times)
+		else:
+			out = F.relu(out)
+
 		out = self.dropout(out)
-		#print('L1:', out.shape)
 		out = self.layer2(out)
-		out = self.relu_conv2(out, times)
+
+		if self.time_conditioning:
+			out = self.relu_conv2(out, times)
+		else:
+			out = F.relu(out)
+
 		out = self.dropout(out)
-		#print('L2:', out.shape)
 		out = self.layer3(out)
-		out = self.relu_conv3(out, times)
+
+		if self.time_conditioning:
+			out = self.relu_conv3(out, times)
+		else:
+			out = F.relu(out)
+		
 		out = self.dropout(out)
-		#print('L3:', out.shape)
 		out = self.layer4(out)
-		out = self.relu_conv4(out, times)
+		
+		if self.time_conditioning:
+			out = self.relu_conv4(out, times)
+		else:
+			out = F.relu(out)
 		#print('L4:',out.shape)
 		#print('Out_shape:', out.shape)
 		#out = self.avg_pool(out)
@@ -534,7 +549,12 @@ class ResNet(nn.Module):
 
 		#print('Out_shape:', out.shape)
 		out = self.fc1(out)
-		out = self.relu_fc1(out, times)
+
+		if self.time_conditioning:
+			out = self.relu_fc1(out, times)
+		else:
+			out = F.relu(out)
+
 		out = self.fc2(out)
 		if not logits:
 			out = torch.softmax(out,dim=-1)

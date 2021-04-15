@@ -41,9 +41,11 @@ def main(args):
         if args.data == "cars":
             load_comp_cars()
         if args.data == "house":
-            load_house_price()
+            load_house_price(args.model)
         if args.data == "house_classifier":
-            load_house_price_classification()             
+            load_house_price_classification()
+        if args.data == "m5":
+            load_m5()
     if args.train_algo == "transformer":
         trainer = TransformerTrainer(args)
     elif args.train_algo == "grad":

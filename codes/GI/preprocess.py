@@ -5,6 +5,7 @@ This file saves all final datasets, which the dataloader shall read and give out
 import pandas as pd
 import numpy as np
 import math
+from collections import Counter
 
 from datetime import datetime
 
@@ -13,6 +14,7 @@ from torchvision.transforms.functional import rotate
 from torchvision.datasets.folder import  has_file_allowed_extension, is_image_file, IMG_EXTENSIONS, pil_loader, accimage_loader,default_loader
 from tqdm import tqdm 
 from sklearn.datasets import make_classification, make_moons
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 import torch
 import os
@@ -21,7 +23,7 @@ from PIL import Image
 from utils import *
 
 MOON_SAMPLES = 200
-ROTNIST_SAMPLES = 1000
+ROTNIST_SAMPLES = 10000
 
 def load_sleep(filename):
 
@@ -64,10 +66,6 @@ def load_sleep(filename):
 		X_temp = data_temp.drop(['Staging2', 'Staging3', 'Staging4', 'Staging5', 'age_s1', 'age_category_s1'], axis=1).values
 		#U_temp = np.array([i]*X_temp.shape[0])*1.0/5
 		U_temp = np.array([i+1]*X_temp.shape[0])*1.0/5
-		print(X_temp.shape)
-		print(Y_temp.shape)
-		print(A_temp.shape)
-		print(U_temp.shape)
 		indices.append(np.arange(index_len,index_len+X_temp.shape[0]))
 		index_len += X_temp.shape[0]
 
@@ -129,11 +127,14 @@ def load_moons(domains, model=None, root='../../data'):
 	# np.save("{}/indices.npy".format(processed_folder), all_indices, allow_pickle=True)
 	json.dump(all_indices, open("{}/indices.json".format(processed_folder),"w"))
 
+
 def load_Rot_MNIST(use_vgg,root="../../data"):
+
+	
 
 	mnist_ind = (np.arange(60000))
 	np.random.shuffle(mnist_ind)
-	mnist_ind = mnist_ind[:6000]
+	#mnist_ind = mnist_ind[:6000]
 	# Save indices
 	processed_folder = os.path.join(root, 'MNIST', 'processed')
 	data_file = 'training.pt'
@@ -147,7 +148,7 @@ def load_Rot_MNIST(use_vgg,root="../../data"):
 	all_indices = [[x for x in range(i*ROTNIST_SAMPLES,(i+1)*ROTNIST_SAMPLES)] for i in range(6)]
 	for idx in range(len(mnist_ind)):
 		index = mnist_ind[idx]
-		bin = int(idx / 1000)
+		bin = int(idx / ROTNIST_SAMPLES)
 		angle = bin * 15
 		image = data[index]
 		image = Image.fromarray(image.numpy(), mode='L')
@@ -345,6 +346,68 @@ def load_house_price_classification(root_dir="../../data/HousePriceClassificatio
 	# print(new_ind)
 	json.dump(new_ind,open("{}/indices.json".format(root_dir),"w"))
 
-if __name__ == '__main__':
-	
-	load_house_price()
+def load_m5(trainfile='../../data/M5/ca_hobbies_train.csv', testfile='../../data/M5/ca_hobbies_test.csv', root_dir='../../data'):
+
+		X_data, Y_data, A_data, U_data = [], [], [], []
+
+		sc = MinMaxScaler()
+		train = pd.read_csv(trainfile)
+
+		ckpts = ['2014-01-01', '2015-01-01', '2016-01-01']
+		indices = []
+		index_len = 0
+		for i, ckpt in enumerate(ckpts):
+
+			print('Dom %d' %i)
+
+			cur = train[train['date'] < ckpt]
+			train = train[train['date'] >= ckpt]
+			cur = cur.drop(['date', 'part', 'id'], axis=1)
+
+			Y = cur['demand'].values.astype(np.float32)
+			X = cur.drop(['demand'], axis=1).values.astype(np.float32)
+			if i == 0:
+				X = sc.fit_transform(X)
+			else:
+				X = sc.transform(X)
+
+			U = np.array([i]*X.shape[0])
+			A = np.array([i]*X.shape[0]) + cur['month'].values/12.0
+
+			indices.append(list(range(index_len, index_len + X.shape[0])))
+			index_len += X.shape[0]
+			X_data.append(X)
+			Y_data.append(Y)
+			U_data.append(U)
+			A_data.append(A)
+
+		test = pd.read_csv(testfile)
+
+		test = test[test['date'] < '2016-01-16']
+		test = test.drop(['date', 'part', 'id'], axis=1)
+		Y = test['demand'].values.astype(np.float32)
+		X = test.drop(['demand'], axis=1).values.astype(np.float32)
+		X = sc.transform(X)
+		U = np.array([len(ckpts)]*X.shape[0])
+		A = np.array([len(ckpts)]*X.shape[0]) + test['month'].values/12.0
+		indices.append(list(range(index_len, index_len + X.shape[0])))
+		index_len += X.shape[0]
+
+		X_data.append(X)
+		Y_data.append(Y)
+		U_data.append(U)
+		A_data.append(A)
+
+		X_data = np.vstack(X_data)
+		Y_data = np.hstack(Y_data)
+		A_data = np.hstack(A_data)
+		U_data = np.hstack(U_data)
+
+		processed_folder = os.path.join(root_dir, 'M5', 'processed')
+		os.makedirs("{}".format(processed_folder), exist_ok=True)
+
+		np.save("{}/X.npy".format(processed_folder), X_data, allow_pickle=True)
+		np.save("{}/Y.npy".format(processed_folder), Y_data, allow_pickle=True)
+		np.save("{}/U.npy".format(processed_folder), A_data, allow_pickle=True)
+		np.save("{}/A.npy".format(processed_folder), U_data, allow_pickle=True)
+		json.dump(indices, open("{}/indices.json".format(processed_folder),"w"))

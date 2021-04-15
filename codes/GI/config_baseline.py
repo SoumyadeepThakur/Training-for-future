@@ -32,6 +32,7 @@ class Config():
 			self.delta_lr=0.1
 			self.delta_clamp=0.15
 			self.delta_steps=10
+			self.lr_reduce = 1.0
 			self.lambda_GI=0.5
 
 		if args.data == "mnist":
@@ -44,13 +45,18 @@ class Config():
 			self.classifier = ResNet 
 			self.model_kwargs =  {
 									"block": ResidualBlock,
-									"layers": [2, 2, 2, 2]   
+									"layers": [2, 2, 2, 2],
+									"time_conditioning": False,
+									"leaky": True,
+									"append_time": False,
+									"use_time2vec": False
 								}
 			self.lr = 1e-4
 			self.classifier_loss_fn = classification_loss
 			self.loss_type = 'classification'
 			self.encoder = None
 
+			self.lr_reduce = 5.0
 			self.delta_lr=0.05
 			self.delta_clamp=0.05
 			self.delta_steps=5
@@ -65,7 +71,7 @@ class Config():
 			from models_GI import PredictionModel
 			self.classifier = PredictionModel
 			self.model_kwargs =  {"input_shape":2, "hidden_shapes":[6, 6], "out_shape":1, "time_conditioning": False, "use_time2vec":False, 
-									"leaky":False, "regression": False}
+									"leaky":True, "regression": False}
 			self.lr = 1e-3
 			self.classifier_loss_fn = binary_classification_loss
 			self.loss_type = 'classification'
@@ -76,6 +82,53 @@ class Config():
 			self.delta_steps=5
 			self.lambda_GI=1.0
 			self.lr_reduce=20.0
+
+		if args.data == 'sleep':
+
+			self.dataset_kwargs = {"root_dir":"../../data/Sleep/processed","device":args.device, "drop_cols":None}
+			self.source_domain_indices = [0,1, 2, 3]
+			self.target_domain_indices = [4]
+			self.data_index_file = "../../data/Sleep/processed/indices.json"
+			from models_GI import PredictionModel
+			self.classifier = PredictionModel
+			self.model_kwargs =  {"input_shape":671, "hidden_shapes":[320, 180], "out_shape":1, "time_conditioning": False, "use_time2vec":False, 
+									"leaky":True, "regression": False}
+			self.lr = 1e-4
+			self.classifier_loss_fn = binary_classification_loss
+			self.loss_type = 'classification'
+			self.encoder = None
+
+			self.delta_lr=0.05
+			self.delta_clamp=0.5
+			self.delta_steps=5
+			self.lambda_GI=0.5
+			self.lr_reduce=10.0
+
+		if args.data == 'm5':
+
+			self.dataset_kwargs = {"root_dir":"../../data/M5/processed","device":args.device, "drop_cols":None}
+			self.source_domain_indices = [0, 1, 2]
+			self.target_domain_indices = [3]
+			self.data_index_file = "../../data/M5/processed/indices.json"
+			from models_GI import PredictionModel
+			self.classifier = PredictionModel
+			self.model_kwargs =  {"input_shape":75, "hidden_shapes":[48, 32], "out_shape":1, "time_conditioning": False, "use_time2vec":False, 
+									"leaky":True, "regression": True}
+			self.lr = 5e-4
+			self.classifier_loss_fn = reconstruction_loss
+			self.loss_type = 'regression'
+			self.encoder = None
+
+			self.delta_lr=0.1
+			self.delta_clamp=0.15
+			self.delta_steps=10
+			self.lambda_GI=0.5
+
+			self.delta_lr=0.05
+			self.delta_clamp=0.5
+			self.delta_steps=5
+			self.lambda_GI=0.5
+			self.lr_reduce=5.0
 
 
 
