@@ -14,7 +14,8 @@ class Config():
 		self.data = args.data 
 		self.update_num_steps = 1
 		self.num_finetune_domains = 2
-
+		self.w_decay = 0
+		self.schedule = False
 		if args.data == "house":
 
 			self.dataset_kwargs = {"root_dir":"../../data/HousePrice","device":args.device, "drop_cols":None}
@@ -70,7 +71,7 @@ class Config():
 			self.data_index_file = "../../data/Moons/processed/indices.json"
 			from models_GI import PredictionModel
 			self.classifier = PredictionModel
-			self.model_kwargs =  {"input_shape":3, "hidden_shapes":[6, 6], "out_shape":1, "time_conditioning": True, "use_time2vec":True, 
+			self.model_kwargs =  {"input_shape":3, "hidden_shapes":[50, 50], "out_shape":1, "time_conditioning": True, "use_time2vec":True, 
 									"leaky":True, "regression": False}
 			self.lr = 1e-3
 			self.classifier_loss_fn = binary_classification_loss
@@ -114,17 +115,15 @@ class Config():
 			self.classifier = PredictionModel
 			self.model_kwargs =  {"input_shape":75, "hidden_shapes":[48, 32], "out_shape":1, "time_conditioning": True, "use_time2vec":True, 
 									"leaky":True, "regression": True}
-			self.lr = 5e-4
+			self.lr = 1e-2
 			self.classifier_loss_fn = reconstruction_loss
 			self.loss_type = 'regression'
 			self.encoder = None
 
-			self.delta_lr=0.1
-			self.delta_clamp=0.15
-			self.delta_steps=10
-			self.lambda_GI=0.5
+			self.delta_lr=5.0
 
-			self.delta_lr=0.05
+			self.schedule = True
+			self.w_decay = 1e-4
 			self.delta_clamp=0.5
 			self.delta_steps=5
 			self.lambda_GI=0.5

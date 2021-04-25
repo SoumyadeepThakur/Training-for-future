@@ -70,7 +70,7 @@ class Config():
 			self.data_index_file = "../../data/Moons/processed/indices.json"
 			from models_GI import PredictionModel
 			self.classifier = PredictionModel
-			self.model_kwargs =  {"input_shape":2, "hidden_shapes":[6, 6], "out_shape":1, "time_conditioning": False, "use_time2vec":False, 
+			self.model_kwargs =  {"input_shape":2, "hidden_shapes":[50, 50], "out_shape":1, "time_conditioning": False, "use_time2vec":False, 
 									"leaky":True, "regression": False}
 			self.lr = 1e-3
 			self.classifier_loss_fn = binary_classification_loss
@@ -112,7 +112,7 @@ class Config():
 			self.data_index_file = "../../data/M5/processed/indices.json"
 			from models_GI import PredictionModel
 			self.classifier = PredictionModel
-			self.model_kwargs =  {"input_shape":75, "hidden_shapes":[48, 32], "out_shape":1, "time_conditioning": False, "use_time2vec":False, 
+			self.model_kwargs =  {"input_shape":75, "hidden_shapes":[48, 48], "out_shape":1, "time_conditioning": False, "use_time2vec":False, 
 									"leaky":True, "regression": True}
 			self.lr = 5e-4
 			self.classifier_loss_fn = reconstruction_loss
