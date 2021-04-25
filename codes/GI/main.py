@@ -76,6 +76,7 @@ if __name__ == '__main__':
     parser.add_argument('--encoder',action='store_true',help="Do we use encodings?")
     parser.add_argument('--delta',default=0.0,type=float)
     parser.add_argument('--seed',default=0,type=int)
+    parser.add_argument('--multistep',action='store_true')
 
     
     args = parser.parse_args()

@@ -83,6 +83,7 @@ class Config():
 			self.delta_steps=5
 			self.lambda_GI=1.0
 			self.lr_reduce=20.0
+			self.multistep = args.multistep
 
 		if args.data == 'sleep':
 

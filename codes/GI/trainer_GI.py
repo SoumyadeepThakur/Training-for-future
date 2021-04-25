@@ -340,11 +340,11 @@ class GradRegTrainer():
 		self.data = args.data 
 		self.model = args.model
 		self.update_num_steps = 1
-		
-
+		self.multistep = args.multistep
+		self.num_int = 'trap'
 		self.writer = SummaryWriter(comment='{}-{}-{}'.format(time.time(),self.model,self.data),log_dir="new_runs")
 
-
+		
 		self.dataset_kwargs = config.dataset_kwargs
 		self.source_domain_indices = config.source_domain_indices   #[6,7,8,9,10]
 		self.target_domain_indices = config.target_domain_indices   #[11]
@@ -478,8 +478,10 @@ class GradRegTrainer():
 					else:
 						delta = (torch.rand((1,)).float()*(0.1-(-0.1)) - 0.1).to(batch_X.device)
 						# TODO pass delta hyperparams here
-						l = stepwise_finetune(batch_X, batch_U, batch_Y, delta, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i))
-						#l = adversarial_finetune(batch_X, batch_U, batch_Y, delta, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i))
+						if self.multistep:
+							l = stepwise_finetune(batch_X, batch_U, batch_Y, delta, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i), num_int='rk4')
+						else:
+							l = adversarial_finetune(batch_X, batch_U, batch_Y, delta, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i))
 						
 					loss = loss + l
 					self.writer.add_scalar("loss/test_{}".format(i),l.item(),step)
