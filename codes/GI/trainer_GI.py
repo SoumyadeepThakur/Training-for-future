@@ -414,6 +414,8 @@ class GradRegTrainer():
 					class_loss += l
 					self.writer.add_scalar("loss/classifier",l.item(),class_step)
 				print("Epoch %d Loss %f"%(epoch,class_loss/len(past_data)),flush=False)
+				if self.schedule:
+					self.scheduler.step()
 			# past_dataset = None
 		else:
 			class_step = 0
@@ -433,6 +435,8 @@ class GradRegTrainer():
 						class_loss += l
 						self.writer.add_scalar("loss/classifier",l.item(),class_step)
 					print("Epoch %d Loss %f"%(epoch,class_loss/len(past_data)),flush=False)
+					if self.schedule:
+					self.scheduler.step()
 
 
 	def finetune_grad_int(self, num_domains=2):
