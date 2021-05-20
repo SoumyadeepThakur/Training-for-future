@@ -14,8 +14,14 @@ class Config():
 		self.data = args.data 
 		self.update_num_steps = 1
 		self.num_finetune_domains = 2
+		self.delta = args.delta
+		self.max_k = args.max_k
 		self.w_decay = 0
 		self.schedule = False
+
+		log_file_name = 'time_{}_{}'.format(args.data,args.model)
+		self.log = open(log_file_name,"a")
+
 		if args.data == "house":
 
 			self.dataset_kwargs = {"root_dir":"../../data/HousePrice","device":args.device, "drop_cols":None}

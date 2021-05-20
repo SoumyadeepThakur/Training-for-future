@@ -15,6 +15,15 @@ class Config():
 		self.update_num_steps = 1
 		self.num_finetune_domains = 2
 
+		self.schedule = False
+
+		log_file_name = 'baseline_{}_{}'.format(args.data,args.model)
+		self.log = open(log_file_name,"a")
+		self.delta = args.delta
+		self.max_k = args.max_k
+		self.w_decay = 0
+
+
 		if args.data == "house":
 
 			self.dataset_kwargs = {"root_dir":"../../data/HousePrice","device":args.device, "drop_cols":None}
@@ -110,25 +119,29 @@ class Config():
 			self.source_domain_indices = [0, 1, 2]
 			self.target_domain_indices = [3]
 			self.data_index_file = "../../data/M5/processed/indices.json"
-			from models_GI import PredictionModel
-			self.classifier = PredictionModel
-			self.model_kwargs =  {"input_shape":75, "hidden_shapes":[48, 48], "out_shape":1, "time_conditioning": False, "use_time2vec":False, 
-									"leaky":True, "regression": True}
-			self.lr = 5e-4
+			#from models_GI import PredictionModel
+			from models_GI import M5Model
+			self.classifier = M5Model
+			#self.model_kwargs =  {"input_shape":75, "hidden_shapes":[50, 50], "out_shape":1, "time_conditioning": True, "use_time2vec":True,
+			#						"leaky":True, "regression": True}
+			self.model_kwargs = {"data_shape": 74, "hidden_shape": 50, "out_shape": 1, "time_conditioning": False, "trelu": False, "time2vec": False}
+			self.lr = 1e-2
 			self.classifier_loss_fn = reconstruction_loss
 			self.loss_type = 'regression'
 			self.encoder = None
 
-			self.delta_lr=0.1
-			self.delta_clamp=0.15
-			self.delta_steps=10
-			self.lambda_GI=0.5
-
+			self.delta_lr=5
+			self.delta_clamp=0.2
+			self.delta_steps=5
+			self.lambda_GI=0.1
+			self.w_decay = 1e-4
 			self.delta_lr=0.05
 			self.delta_clamp=0.5
 			self.delta_steps=5
 			self.lambda_GI=0.5
-			self.lr_reduce=5.0
+			self.lr_reduce=20.0
+			self.schedule = True
+
 
 
 

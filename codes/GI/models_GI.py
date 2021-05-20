@@ -207,6 +207,60 @@ class PredictionModel(nn.Module):
 		return X
 
 '''
+
+class M5Model(nn.Module):
+
+	def __init__(self, data_shape=75, hidden_shape=50, out_shape=1, time_conditioning=True, trelu=True, time2vec=True):
+
+		super(M5Model,self).__init__()
+
+		self.time_dim = 1
+		self.using_t2v = False
+		self.trelu = trelu
+		self.time_conditioning = time_conditioning
+		if time2vec:
+			self.using_t2v = True
+			self.time_dim = 8
+			self.t2v = Time2Vec(1, self.time_dim)
+
+		self.layer_0 = nn.Linear(data_shape, hidden_shape)
+		if self.time_conditioning and self.trelu:
+			self.relu_0 = TimeReLU(hidden_shape, self.time_dim, True)
+		else:
+			self.relu_0 = nn.LeakyReLU()
+
+		self.layer_1 = nn.Linear(hidden_shape, hidden_shape)
+
+		if self.time_conditioning and self.trelu:
+			self.relu_1 = TimeReLU(hidden_shape, self.time_dim, True)
+		else:
+			self.relu_1 = nn.LeakyReLU()
+
+		self.layer_3 = nn.Linear(hidden_shape, out_shape)
+
+		self.apply(init_weights)
+
+	def forward(self, X, times, logits=False):
+
+		if self.time_conditioning:
+			X = torch.cat([X, times.view(-1, 1)], dim=-1)
+
+		if self.using_t2v:
+			times = self.t2v(times)
+		if self.trelu:
+			X = self.relu_0(self.layer_0(X), times)
+		else:
+			X = self.relu_0(self.layer_0(X))
+
+		if self.trelu:
+			X = self.relu_1(self.layer_1(X), times)
+		else:
+			X = self.relu_1(self.layer_1(X))
+		X = self.layer_3(X)
+
+		return X
+
+
 class PredictionModel(nn.Module):
 
 	

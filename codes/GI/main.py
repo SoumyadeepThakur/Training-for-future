@@ -4,13 +4,11 @@
 '''
 
 import argparse
-from trainer_GI import *
+from trainer_new import *
 from preprocess import *
 import random
 import os
 import numpy as np
-
-device = "cuda:0"
 
 def seed_torch(seed):
     random.seed(seed)
@@ -52,7 +50,7 @@ def main(args):
         trainer = CrossGradTrainer(args)
     elif args.train_algo == "meta":
         trainer = MetaTrainer(args)
-    elif args.train_algo == "grad_reg":
+    elif args.train_algo == "grad_int":
         trainer = GradRegTrainer(args)
     elif args.train_algo == "hybrid":
         trainer = HybridTrainer(args)
@@ -77,6 +75,9 @@ if __name__ == '__main__':
     parser.add_argument('--delta',default=0.0,type=float)
     parser.add_argument('--seed',default=0,type=int)
     parser.add_argument('--multistep',action='store_true')
+    parser.add_argument('--max_k',type=int)
+    parser.add_argument('--ensemble',action='store_true')
+    parser.add_argument('--pretrained',action='store_true')
 
     
     args = parser.parse_args()

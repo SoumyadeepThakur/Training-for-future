@@ -14,8 +14,30 @@ class Config():
 		self.data = args.data 
 		self.update_num_steps = 1
 		self.num_finetune_domains = 2
+		self.delta = args.delta
+		self.max_k = args.max_k
 		self.w_decay = 0
 		self.schedule = False
+
+		
+		log_file_name = 'debugging_no_curric_{}_{}'.format(args.data,args.model)
+		'''
+		if args.trelu_limit < 1000:
+			log_file_name += '_trelulimit-{}'.format(args.trelu_limit)
+		if args.single_trelu:
+			log_file_name += '_single-trelu'
+		if args.delta > 0.0 or args.delta < 0.0:
+			log_file_name += '_delta-{}'.format(args.delta)
+		if args.max_k > 1:
+			log_file_name += '_max-k-{}'.format(args.max_k)			
+		if args.time_softmax:
+			log_file_name += '_time-softmax'
+		if args.ensemble:
+			log_file_name += '_ensemble'
+		'''
+		self.log = open(log_file_name,"a")
+		
+
 		if args.data == "house":
 
 			self.dataset_kwargs = {"root_dir":"../../data/HousePrice","device":args.device, "drop_cols":None}
@@ -82,7 +104,7 @@ class Config():
 			self.delta_clamp=0.5
 			self.delta_steps=5
 			self.lambda_GI=1.0
-			self.lr_reduce=20.0
+			self.lr_reduce=2.0
 			self.multistep = args.multistep
 
 		if args.data == 'sleep':
@@ -108,28 +130,33 @@ class Config():
 
 		if args.data == 'm5':
 
+			
+
 			self.dataset_kwargs = {"root_dir":"../../data/M5/processed","device":args.device, "drop_cols":None}
 			self.source_domain_indices = [0, 1, 2]
 			self.target_domain_indices = [3]
 			self.data_index_file = "../../data/M5/processed/indices.json"
-			from models_GI import PredictionModel
-			self.classifier = PredictionModel
-			self.model_kwargs =  {"input_shape":75, "hidden_shapes":[48, 32], "out_shape":1, "time_conditioning": True, "use_time2vec":True, 
-									"leaky":True, "regression": True}
-			self.lr = 5e-4
+			#from models_GI import PredictionModel
+			from models_GI import M5Model
+			self.classifier = M5Model
+			#self.model_kwargs =  {"input_shape":75, "hidden_shapes":[50, 50], "out_shape":1, "time_conditioning": True, "use_time2vec":True,
+			#						"leaky":True, "regression": True}
+			self.model_kwargs = {"data_shape": 75, "hidden_shape": 50, "out_shape": 1, "time_conditioning": True, "trelu": True, "time2vec": True}
+			self.lr = 1e-2
 			self.classifier_loss_fn = reconstruction_loss
 			self.loss_type = 'regression'
 			self.encoder = None
 
-			self.delta_lr=0.1
-			self.delta_clamp=0.15
-			self.delta_steps=10
-			self.lambda_GI=0.5
-
+			self.delta_lr=5
+			self.delta_clamp=0.2
+			self.delta_steps=5
+			self.lambda_GI=0.1
+			self.w_decay = 1e-4
 			self.delta_lr=0.05
 			self.delta_clamp=0.5
 			self.delta_steps=5
-			self.lambda_GI=0.5
-			self.lr_reduce=5.0
+			self.lambda_GI=1.0
+			self.lr_reduce=10.0
+			self.schedule = True
 
 

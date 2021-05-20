@@ -342,6 +342,7 @@ class GradRegTrainer():
 		self.update_num_steps = 1
 		self.multistep = args.multistep
 		self.num_int = 'trap'
+		
 		self.writer = SummaryWriter(comment='{}-{}-{}'.format(time.time(),self.model,self.data),log_dir="new_runs")
 
 		
@@ -387,7 +388,6 @@ class GradRegTrainer():
 		self.patience = 2
 		self.early_stopping = args.early_stopping
 		self.seed = args.seed
-
 
 	def train_classifier(self,past_dataset=None,encoder=None,inc_finetune=False):
 		'''Train the classifier initially
@@ -436,7 +436,7 @@ class GradRegTrainer():
 						self.writer.add_scalar("loss/classifier",l.item(),class_step)
 					print("Epoch %d Loss %f"%(epoch,class_loss/len(past_data)),flush=False)
 					if self.schedule:
-					self.scheduler.step()
+						self.scheduler.step()
 
 
 	def finetune_grad_int(self, num_domains=2):
@@ -715,7 +715,7 @@ class GradRegTrainer():
 		print("#####################################",file=log)
 		print("Performance of the base classifier",file=log)
 		self.eval_classifier(log=log, ensemble=False)
-		self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(),self.lr/self.lr_reduce)
+		self.classifier_optimizer = torch.optim.Adam(self.classifier.parameters(),self.lr/self.lr_reduce, weight_decay=self.w_decay)
 		if self.model == "GI" or self.model == "goodfellow" or self.model == "t_goodfellow" or self.model == "t_GI":
 
 			print('='*100)
