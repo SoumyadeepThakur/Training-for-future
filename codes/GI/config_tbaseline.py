@@ -77,9 +77,9 @@ class Config():
 			self.data_index_file = "../../data/Moons/processed/indices.json"
 			from models_GI import PredictionModel
 			self.classifier = PredictionModel
-			self.model_kwargs =  {"input_shape":3, "hidden_shapes":[50, 50], "out_shape":1, "time_conditioning": True, "use_time2vec":True, 
+			self.model_kwargs =  {"input_shape":3, "hidden_shapes":[50, 50], "out_shape":1, "time_conditioning": True, "trelu": False, "use_time2vec":False, 
 									"leaky":True, "regression": False}
-			self.lr = 1e-3
+			self.lr = 5e-3
 			self.classifier_loss_fn = binary_classification_loss
 			self.loss_type = 'classification'
 			self.encoder = None
@@ -89,6 +89,7 @@ class Config():
 			self.delta_clamp=0.5
 			self.delta_steps=5
 			self.lambda_GI=1.0
+		'''
 
 		if args.data == 'sleep':
 
@@ -110,6 +111,7 @@ class Config():
 			self.delta_steps=5
 			self.lambda_GI=0.5
 			self.lr_reduce=10.0
+		'''
 
 		if args.data == 'm5':
 
@@ -117,10 +119,14 @@ class Config():
 			self.source_domain_indices = [0, 1, 2]
 			self.target_domain_indices = [3]
 			self.data_index_file = "../../data/M5/processed/indices.json"
-			from models_GI import PredictionModel
-			self.classifier = PredictionModel
-			self.model_kwargs =  {"input_shape":75, "hidden_shapes":[48, 32], "out_shape":1, "time_conditioning": True, "use_time2vec":True, 
-									"leaky":True, "regression": True}
+			#from models_GI import PredictionModel
+			#self.classifier = PredictionModel
+			#self.model_kwargs =  {"input_shape":75, "hidden_shapes":[48, 32], "out_shape":1, "time_conditioning": True, "use_time2vec":False, 
+			#						"leaky":False, "regression": True}
+
+			from models_GI import M5Model
+			self.classifier = M5Model
+			self.model_kwargs = {"data_shape": 75, "hidden_shape": 50, "out_shape": 1, "time_conditioning": True, "trelu": False, "time2vec": False}
 			self.lr = 1e-2
 			self.classifier_loss_fn = reconstruction_loss
 			self.loss_type = 'regression'
@@ -128,11 +134,40 @@ class Config():
 
 			self.delta_lr=5.0
 
-			self.schedule = True
+			self.delta_lr=0.5
+			self.delta_steps=5
 			self.w_decay = 1e-4
 			self.delta_clamp=0.5
 			self.delta_steps=5
-			self.lambda_GI=0.5
-			self.lr_reduce=5.0
+			self.lambda_GI=1.0
+			self.lr_reduce=20.0
+			self.schedule = True
 
 
+		if args.data == 'm5_household':
+
+			
+
+			self.dataset_kwargs = {"root_dir":"../../data/M5/processed_household","device":args.device, "drop_cols":None}
+			self.source_domain_indices = [0, 1, 2]
+			self.target_domain_indices = [3]
+			self.data_index_file = "../../data/M5/processed_household/indices.json"
+			#from models_GI import PredictionModel
+			from models_GI import M5Model
+			self.classifier = M5Model
+			#self.model_kwargs =  {"input_shape":75, "hidden_shapes":[50, 50], "out_shape":1, "time_conditioning": True, "use_time2vec":True,
+			#						"leaky":True, "regression": True}
+			self.model_kwargs = {"data_shape": 75, "hidden_shape": 50, "out_shape": 1, "time_conditioning": True, "trelu": True, "time2vec": True}
+			self.lr = 1e-2
+			self.classifier_loss_fn = reconstruction_loss
+			self.loss_type = 'regression'
+			self.encoder = None
+
+			self.delta_steps=5
+			self.w_decay = 1e-4
+			self.delta_lr=0.5
+			self.delta_clamp=0.5
+			self.delta_steps=5
+			self.lambda_GI=1.0
+			self.lr_reduce=20.0
+			self.schedule = True

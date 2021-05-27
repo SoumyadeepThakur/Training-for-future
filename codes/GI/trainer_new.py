@@ -8,8 +8,9 @@ import numpy as np
 import json
 import pickle
 import os 
-
-from matplotlib import pyplot as plt
+import torch.nn.functional as F
+import matplotlib
+import matplotlib.pyplot as plt
 
 # from models import *
 from utils import *
@@ -24,6 +25,131 @@ import time
 
 np.set_printoptions(precision = 3)
 
+def plot_decision_boundary(c, u, X, Y, name):
+		
+	font = {'family' : 'normal',
+		'weight' : 'bold',
+		'size'   : 18}
+
+	matplotlib.rc('font', **font)
+
+	# Set min and max values and give it some padding
+	x_min, x_max = -2.5, 2.5
+	y_min, y_max = -2.5, 2.5
+	h = 0.005
+	# Generate a grid of points with distance h between them
+	xx,yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+	# Predict the function value for the whole gid
+	Z = torch.round(c(torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]), torch.tensor([[u/11]]*1000*1000)).detach()).numpy()
+	Z = Z.reshape(xx.shape)
+	# Plot the contour and training examples
+	#sns.heatmap(Z)
+	#plt.show()
+	plt.title('%dth domain - %s' %(u, name))
+	plt.contourf(xx, yy, Z, cmap=plt.cm.Blues, vmin=-1, vmax=2)
+	plt.scatter(X[:, 0], X[:, 1], c=Y, cmap=plt.cm.binary)
+	plt.savefig('final_plots/%s_%f.png' %(name, u))
+	plt.clf()
+
+
+def plot_overlapping_boundary(c, u_1, u_2, X, Y, X_2, Y_2, name):
+		
+	font = {'family' : 'normal',
+		'weight' : 'bold',
+		'size'   : 18}
+
+	matplotlib.rc('font', **font)
+
+	# Set min and max values and give it some padding
+	x_min, x_max = -2.5, 2.0
+	y_min, y_max = -2.0, 2.5
+	h = 0.005
+	# Generate a grid of points with distance h between them
+	cmpp = plt.cm.get_cmap('BuPu')
+	colors = cmpp(np.linspace(0, 1, 10))
+	white = np.array([[1.0, 1.0, 1.0, 1.0]])
+	colors = np.vstack([white, colors])
+	cmpp = matplotlib.colors.ListedColormap(colors)
+	xx,yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+	# Predict the function value for the whole gid
+	Z1 = c(torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]), torch.tensor([[u_1/11]]*900*900)).detach().numpy()
+	Z1 = Z1.reshape(xx.shape)
+	Z2 = c(torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]), torch.tensor([[u_2/11]]*900*900)).detach().numpy()
+	Z2 = Z2.reshape(xx.shape)
+	# Plot the contour and training examples
+	#sns.heatmap(Z)
+	#plt.show()
+	#print(Z)
+	
+	Z1 = (abs(Z1 - 0.5) < 5e-2).astype(np.float)
+	Z2 = (abs(Z2 - 0.5) < 5e-2).astype(np.float)
+	'''
+	y1 = []
+	y2 = []
+	for i, x in enumerate(xx[0]):
+		y = Z1[:,i]
+		#idx = np.where(y == 1.0)[0]
+		idx = np.argmin(y)
+		print(idx)
+		y1.append(yy[:,0][int(np.min(idx))])
+		y = Z2[:,i]
+		#idx = np.where(y == 1.0)[0]
+		idx = np.argmin(y)
+		print(idx)
+		y2.append(yy[:,0][int(np.min(idx))])
+	'''
+	Z = (14*Z2)/15.0
+	#Z = np.zeros_like(Z)
+	plt.title('%s' %(name))
+	plt.xlim(-2.5, 2.0)
+	plt.ylim(-2.0, 2.5)
+	#plt.contourf(xx, yy, Z, cmap=plt.cm.binary, vmin=0, vmax=1)
+	#plt.plot(xx[0], y1, 'c--', linewidth=3.0)
+	#plt.plot(xx[0], y2, color='#00004c', linewidth=3.0)
+	prev_lab = ["6th - Class 0", "6th - Class 1"]
+	cur_lab = ["Class 0", "Class 1"]
+	plt.contourf(xx, yy, Z, cmap=cmpp, vmin=0, vmax=1)
+	cur = plt.scatter(X[:, 0], X[:, 1], s=25, c=Y, cmap=plt.cm.seismic, alpha=0.7)
+	prev = plt.scatter(X_2[:, 0], X_2[:, 1], s=25, c=Y_2, cmap=plt.cm.bwr, vmin=-1.0, vmax=2.0, alpha=0.7)
+	#plt.legend((prev, cur), ("7th domain", "10th domain"), fontsize=8)
+	plt.legend(handles=prev.legend_elements()[0], labels=prev_lab, fontsize=8)
+	plt.legend(handles=cur.legend_elements()[0], labels=cur_lab, fontsize=8)
+	plt.savefig('final_plots/%s_%f_%f.png' %(name, u_1, u_2))
+	plt.clf()
+
+def plot_gradients(c, u, X, Y, name):
+
+	font = {'family' : 'normal',
+		'weight' : 'bold',
+		'size'   : 18}
+
+	matplotlib.rc('font', **font)
+
+	# Set min and max values and give it some padding
+	x_min, x_max = -2.5, 2.5
+	y_min, y_max = -2.5, 2.5
+	h = 0.005
+	# Generate a grid of points with distance h between them
+	xx,yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+	# Predict the function value for the whole gid
+	uu = torch.tensor([[u/11]]*1000*1000)
+	uu.requires_grad_(True)
+	Z = c(torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]), uu)
+	dZ_dt = torch.autograd.grad(Z, uu, grad_outputs=torch.ones_like(Z), retain_graph=True)[0]
+	heat = dZ_dt.detach().cpu().numpy().reshape(xx.shape)
+	# Plot the contour and training examples
+	#sns.heatmap(Z)
+	#plt.show()
+	print(Z)
+	print(np.abs(heat).min())
+	print(np.abs(heat).max())
+	plt.title('%dth domain - %s' %(u, name))
+	plt.imshow(np.abs(heat), cmap='hot', interpolation='nearest', vmin=0, vmax=30)
+	#plt.show()
+	#plt.contourf(xx, yy, Z, cmap=plt.cm.Blues, vmin=-1, vmax=2)
+	#plt.scatter(X[:, 0], X[:, 1], c=Y, cmap=plt.cm.binary)
+	plt.savefig('final_plots/%s_grads_%f.png' %(name, u))
+	plt.clf()
 
 def visualize_single(x,u,classifier):
 	x_ = []
@@ -88,7 +214,6 @@ def train_classifier_batch(X,dest_u,dest_a,Y,classifier,classifier_optimizer,bat
 			X = encoder(X) #.view(out_shape)
 
 	if transformer is not None:
-		# print(source_u.size(),dest_u.size())
 		X_pred = transformer(X,torch.cat([source_u.squeeze(-1),dest_u],dim=1))
 	else:
 		X_pred = X
@@ -100,7 +225,7 @@ def train_classifier_batch(X,dest_u,dest_a,Y,classifier,classifier_optimizer,bat
 
 	# if verbose:
 	#   with torch.no_grad():
-	#       print(torch.cat([Y_pred[:20],Y[:20].view(-1,1).float(),pred_loss[:20].view(-1,1)],dim=1).detach().cpu().numpy(),file=log)
+	#	   print(torch.cat([Y_pred[:20],Y[:20].view(-1,1).float(),pred_loss[:20].view(-1,1)],dim=1).detach().cpu().numpy(),file=log)
 
 	if kernel is not None:
 		pred_loss = pred_loss * kernel
@@ -247,7 +372,7 @@ def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer,classi
 			
 			partial_Y_pred_t = torch.cat(partial_logit_pred_t, 1)
 
-
+		#print('dY/dt', partial_Y_pred_t)
 		# partial_Y_pred_t = torch.autograd.grad(Y_pred, U_grad, grad_outputs=torch.ones_like(Y_pred), retain_graph=True)[0]
 		# partial_Y_pred_t.requires_grad_(True)
 		Y_pred = Y_pred + delta * partial_Y_pred_t
@@ -258,7 +383,6 @@ def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer,classi
 		loss = classifier_loss_fn(Y_pred,Y).mean()
 		# loss.backward()
 		partial_loss_delta = torch.autograd.grad(loss, delta, grad_outputs=torch.ones_like(loss), retain_graph=True)[0]
-		# print(partial_loss_delta,loss)
 		delta = delta + delta_lr*partial_loss_delta
 
 		if torch.norm(partial_loss_delta) < 1e-3 or delta > delta_clamp or delta < -1*delta_clamp:
@@ -565,9 +689,9 @@ class GradRegTrainer():
 
 
 		self.dataset_kwargs = config.dataset_kwargs
-		self.source_domain_indices = config.source_domain_indices   #[6,7,8,9,10]
-		self.target_domain_indices = config.target_domain_indices   #[11]
-		data_index_file = config.data_index_file    #"../../data/HousePrice/indices.json"
+		self.source_domain_indices = config.source_domain_indices
+		self.target_domain_indices = config.target_domain_indices
+		data_index_file = config.data_index_file
 		self.classifier = config.classifier(**config.model_kwargs).to(args.device) 
 		self.lr = config.lr
 		self.lr_reduce = config.lr_reduce
@@ -600,6 +724,7 @@ class GradRegTrainer():
 		self.cumulative_data_indices = get_cumulative_data_indices(self.source_data_indices)
 		# print(self.cumulative_data_indices)
 		self.target_indices = [data_indices[i] for i in self.target_domain_indices][0]  # TODO Flatten this list instead of picking 0th ele
+		
 		self.shuffle = True
 		self.device = args.device
 		self.delta  = args.delta
@@ -661,7 +786,7 @@ class GradRegTrainer():
 				for epoch in range(int(self.CLASSIFIER_EPOCHS*(1-(i/10)))):
 					class_loss = 0
 					num_batch = 0
-					for batch_X, batch_A, batch_U, batch_Y in tqdm(past_dataset):
+					for batch_X, batch_A, batch_U, batch_Y in past_dataset:
 
 						# batch_X = torch.cat([batch_X,batch_U.view(-1,2)],dim=1)
 
@@ -709,6 +834,7 @@ class GradRegTrainer():
 		# Apply mean
 
 		return Y_pred
+		
 	def finetune_grad_int(self, num_domains=2):
 		'''Finetunes using gradient interpolation
 		
@@ -745,7 +871,7 @@ class GradRegTrainer():
 
 
 				loss = 0
-				for batch_X, _, batch_U, batch_Y in tqdm(past_dataset):
+				for batch_X, _, batch_U, batch_Y in past_dataset:
 
 					batch_U = batch_U.view(-1,1)
 					# print(batch_U)
@@ -757,10 +883,12 @@ class GradRegTrainer():
 						# delta = (torch.rand(batch_U.size()).float()*(0.1-(-0.1)) - 0.1).to(batch_X.device)
 						# TODO pass delta hyperparams here
 						# print(delta_)
-						# delta_ = torch.FloatTensor(1,1).uniform_(-0.1,0.1).to(self.device) #self.delta 
+						#delta_ = torch.FloatTensor(1,1).uniform_(-0.1,0.1).to(self.device) #self.delta 
 
 						self.delta = torch.tensor(delta_) #+ torch.rand(1).float().to(self.device)*0.001
+						print('ORIGINAL',self.delta)
 						l,delta_ = adversarial_finetune(batch_X, batch_U, batch_Y, self.delta, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i))
+						print(delta_)
 					elif self.model in ["grad_reg"]:
 						delta = (torch.rand(batch_U.size()).float()*(0.1-(-0.1)) - 0.1).to(batch_X.device)
 						# TODO pass delta hyperparams here
@@ -801,7 +929,7 @@ class GradRegTrainer():
 				if self.early_stopping:
 					with torch.no_grad():
 						net_val_loss = 0
-						for batch_X, _, batch_U, batch_Y in tqdm(val_dataset):
+						for batch_X, _, batch_U, batch_Y in val_dataset:
 							batch_Y_pred = self.classifier(batch_X, batch_U)
 							net_val_loss += self.classifier_loss_fn(batch_Y_pred,batch_Y).sum().item()
 						
@@ -847,6 +975,7 @@ class GradRegTrainer():
 				#   Y_label = Y_label + [np.argmax(batch_Y.detach().cpu().numpy(),axis=1).reshape((batch_Y_pred.shape[0],1))]
 				# else:
 				Y_label = Y_label + [batch_Y.detach().cpu().numpy()]
+				
 			elif self.task == 'regression':
 				Y_pred = Y_pred + [batch_Y_pred.reshape(-1,1)]
 				Y_label = Y_label + [batch_Y.detach().cpu().numpy().reshape(-1,1)]
@@ -904,6 +1033,7 @@ class GradRegTrainer():
 	def train(self):
 
 		# if os.path.exists("classifier_{}_{}.pth".format(self.data,self.seed)):
+		print(self.classifier)
 		if self.use_pretrained:
 			try:
 				self.classifier.load_state_dict(torch.load("classifier_{}_{}.pth".format(self.data,self.seed)))
@@ -932,6 +1062,36 @@ class GradRegTrainer():
 			self.finetune_grad_int(num_domains=self.num_finetune_domains)
 			print("Performance after fine-tuning",file=self.log)
 			self.eval_classifier(log=self.log,ensemble=self.ensemble)
+
+		
+		#for u in range(7, 8):
+
+		#	idxs = self.source_data_indices[u]
+		#	td = ClassificationDataSet(indices=idxs,**self.dataset_kwargs)
+		#	target_dataset = torch.utils.data.DataLoader(td,200,False,drop_last=False)
 			
+		#	for batch_X, batch_A,batch_U, batch_Y in target_dataset:
+		#		batch_U = batch_U.view(-1, 1)
+		#		plot_overlapping_boundary(self.classifier, u, u+2, batch_X,  batch_Y, 'ground truth')
+				#plot_gradients(self.classifier, u, batch_X,  batch_Y, self.model)
+		
+		
+		idxs = self.target_indices
+		print(idxs)
+		td = ClassificationDataSet(indices=idxs,**self.dataset_kwargs)
+		target_dataset = torch.utils.data.DataLoader(td,400,False,drop_last=False)
+		
+		for batch_X, batch_A,batch_U, batch_Y in target_dataset:
+
+			src_ids = self.source_data_indices[6]
+			sd = ClassificationDataSet(indices=src_ids,**self.dataset_kwargs)
+			source_dataset = torch.utils.data.DataLoader(sd, 400, False, drop_last=False)
+			for s_X, s_A, s_U, s_Y in source_dataset:
+				#print(batch_X, batch_Y, s_X, s_Y)
+				plot_overlapping_boundary(self.classifier, 6, 9, batch_X, batch_Y, s_X, s_Y, self.model)
+				#plot_decision_boundary(self.classifier, 9, batch_X, batch_Y, self.model)
+			
+			#plot_gradients(self.classifier, 9, batch_X, batch_Y, self.model)		
+		
 		
 		

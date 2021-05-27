@@ -10,6 +10,7 @@ import random
 import os
 import numpy as np
 
+
 def seed_torch(seed):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed) 
@@ -44,6 +45,10 @@ def main(args):
             load_house_price_classification()
         if args.data == "m5":
             load_m5()
+        if args.data == "m5_household":
+            load_m5_household()
+        if args.data == "onp":
+            load_onp()
     if args.train_algo == "transformer":
         trainer = TransformerTrainer(args)
     elif args.train_algo == "grad":

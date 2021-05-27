@@ -9,6 +9,7 @@ def classification_loss(Y_pred, Y):
 	Y_new = torch.zeros_like(Y_pred)
 	Y_new = Y_new.scatter(1,Y.view(-1,1),1.0)
 	# print(Y_new * torch.log(Y_pred+ 1e-15))
+	#print(Y_new, Y_pred)
 	return  -1.*torch.sum((Y_new * torch.log(Y_pred+ 1e-15)),dim=1)
 
 def categorical_reconstruction_loss(Y_pred,Y):

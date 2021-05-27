@@ -207,6 +207,45 @@ class PredictionModel(nn.Module):
 		return X
 
 '''
+class ONPModel(nn.Module):
+
+	def __init__(self, data_shape=59, hidden_shapes=[200], out_shape=1, time_conditioning=False, trelu=False, time2vec=False):
+		
+		super(ONPModel,self).__init__()
+
+		self.time_dim = 1
+		self.using_t2v = False
+		self.out_shape = out_shape
+		self.time_conditioning = time_conditioning
+		self.trelu = trelu
+		if time2vec:
+			self.using_t2v = True
+			self.time_dim = 8
+			self.t2v = Time2Vec(1, self.time_dim)
+
+		self.layer_0 = nn.Linear(data_shape, hidden_shapes[0])
+		self.relu_0 = TimeReLU(hidden_shapes[0], self.time_dim, True)
+		self.bn0 = nn.BatchNorm1d(hidden_shapes[0])
+		self.layer_1 = nn.Linear(hidden_shapes[0], out_shape)
+
+		self.apply(init_weights)
+
+	def forward(self, X, times, logits=False):
+		
+		X = torch.cat([X, times.view(-1, 1)], dim=1)
+		if self.using_t2v:
+			times = self.t2v(times)
+		X = self.relu_0(self.layer_0(X), times)
+		#X = F.leaky_relu(self.layer_1(X))
+
+		X = self.layer_1(X)
+
+		if not logits:
+			if self.out_shape > 1:
+				X = torch.softmax(X, dim=-1)
+			else:
+				X = torch.sigmoid(X)
+		return X
 
 class M5Model(nn.Module):
 
@@ -270,7 +309,7 @@ class PredictionModel(nn.Module):
 
 		self.time_conditioning = kwargs['time_conditioning'] if kwargs.get('time_conditioning') else False
 		self.leaky = kwargs['leaky']
-		
+		self.trelu = kwargs['trelu']
 		if self.time_conditioning:
 
 			self.leaky = kwargs['leaky'] if kwargs.get('leaky') else False
@@ -301,7 +340,7 @@ class PredictionModel(nn.Module):
 		else:
 
 			self.layers.append(nn.Linear(self.input_shape, self.hidden_shapes[0]))
-			if self.time_conditioning:
+			if self.time_conditioning and self.trelu:
 				self.relus.append(TimeReLU(data_shape=self.hidden_shapes[0], time_shape=self.time_shape, leaky=self.leaky))
 			else:
 				if self.leaky:
@@ -312,7 +351,7 @@ class PredictionModel(nn.Module):
 			for i in range(len(self.hidden_shapes) - 1):
 
 				self.layers.append(nn.Linear(self.hidden_shapes[i], self.hidden_shapes[i+1]))
-				if self.time_conditioning:
+				if self.time_conditioning and self.trelu:
 					self.relus.append(TimeReLU(data_shape=self.hidden_shapes[i+1], time_shape=self.time_shape, leaky=self.leaky))
 				else:
 					if self.leaky:
@@ -335,7 +374,7 @@ class PredictionModel(nn.Module):
 		if self.time2vec is not None:
 			times = self.time2vec(times)
 
-		if self.time_conditioning:
+		if self.time_conditioning and self.trelu:
 			X = self.relus[0](self.layers[0](X), times)
 		else:
 			X = self.relus[0](self.layers[0](X))
@@ -343,7 +382,7 @@ class PredictionModel(nn.Module):
 		for i in range(1, len(self.layers)-1):
 
 			X = self.layers[i](X)
-			if self.time_conditioning:
+			if self.time_conditioning and self.trelu:
 				X = self.relus[i](X, times)
 			else:
 				X = self.relus[i](X)
@@ -356,9 +395,9 @@ class PredictionModel(nn.Module):
 		
 		if not logits:
 			if self.output_shape > 1:
-				X = F.softmax(X, dim=-1)
+				X = torch.softmax(X, dim=-1)
 			else:
-				X = F.sigmoid(X)
+				X = torch.sigmoid(X)
 		
 		return X		
 

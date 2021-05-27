@@ -23,65 +23,49 @@ from PIL import Image
 from utils import *
 
 MOON_SAMPLES = 200
-ROTNIST_SAMPLES = 10000
+ROTNIST_SAMPLES = 1000
 
-def load_sleep(filename):
+def load_onp(filename='../../data/ONP/OnlineNewsPopularity.csv', root='../../data'):
 
-	domains = 5
+	processed_folder = os.path.join(root, 'ONP', 'processed')
 	
-	df =  pd.read_csv(filename)
-	df = df.drop(['rcrdtime'], axis=1)
-	nan_values = dict()
-	for col in df.columns:
-		nan_values[col] = df[col].isna().sum()
+	df = pd.read_csv(filename)
 
-	df = df.dropna(subset=['Staging1','Staging2','Staging3','Staging4','Staging5'])
-	final_cols = []
-	for col in nan_values.keys():
-		if nan_values[col] <= 500:
-			final_cols.append(col)
+	df = df.drop(['url'], axis=1)
+	ckpts = [600, 480, 360, 240, 120, 0]
 
-	print(len(final_cols))
-	df = df[final_cols]
-	imputer = SimpleImputer(strategy='mean')
-	#imputer = KNNImputer(n_neighbors=3, weights="uniform")
-	df = pd.DataFrame(imputer.fit_transform(df), columns = df.columns)
-	print(df.shape)
-
-
-	X_data, Y_data, A_data, U_data = [], [], [], []
+	X_data, Y_data, A_data = [], [], []
 	indices = []
 	index_len = 0
-	ckpts = [50, 60, 70, 80, 90]
+	for ii, ckpt in enumerate(ckpts):
 
-	for i, ckpt in enumerate(ckpts):
+		temp = df[df[' timedelta'] > ckpt]
+		Y_dom = temp[' shares'].values
+		Y_dom = np.array([0 if y <= 1400 else 1 for y in Y_dom])
+		A_dom = temp[' timedelta'].values/120.0
+		X_dom = temp.drop([' shares', ' timedelta'], axis=1).values
 
-		data_temp = df[df['age_s1'] <= ckpt]
-		df = df[df['age_s1'] > ckpt]
-		Y_temp = data_temp['Staging1'].values
-		Y_temp = np.eye(2)[Y_temp.astype(np.int32)]   # Can we change this to 0/1 labels 
-		#A_temp = (data_temp['age_s1'].values-39)/90
-		A_temp = (data_temp['age_s1'].values-38)/90
-		data_temp = data_temp.drop(['Staging1'], axis=1)
-		X_temp = data_temp.drop(['Staging2', 'Staging3', 'Staging4', 'Staging5', 'age_s1', 'age_category_s1'], axis=1).values
-		#U_temp = np.array([i]*X_temp.shape[0])*1.0/5
-		U_temp = np.array([i+1]*X_temp.shape[0])*1.0/5
-		indices.append(np.arange(index_len,index_len+X_temp.shape[0]))
-		index_len += X_temp.shape[0]
+		df = df[df[' timedelta'] <= ckpt]
 
-		X_temp =X_temp.astype(np.float32)
-		A_temp = A_temp.astype(np.float32)
-		U_temp =U_temp.astype(np.float32)
-		
-		X_data.append(X_temp)
-		Y_data.append(Y_temp)
-		A_data.append(A_temp)
-		U_data.append(U_temp)
+		X_data.append(X_dom)
+		Y_data.append(Y_dom)
+		A_data.append(A_dom)
 
-	np.save(np.array(X_data))
-	np.save(np.array(Y_data))
-	np.save(np.array(A_data))
-	np.save(np.array(U_data))
+		indices.append(list(range(index_len, index_len+X_dom.shape[0])))
+		index_len += X_dom.shape[0]
+
+	X_source = np.vstack(X_data[:-1])
+	sc = StandardScaler(copy=False)
+	sc.fit(X_source)
+	for i in range(len(X_data)):
+		X_data[i] = sc.transform(X_data[i])
+
+	os.makedirs("{}".format(processed_folder), exist_ok=True)
+	np.save("{}/X.npy".format(processed_folder), np.vstack(X_data), allow_pickle=True)
+	np.save("{}/Y.npy".format(processed_folder), np.hstack(Y_data), allow_pickle=True)
+	np.save("{}/U.npy".format(processed_folder), np.hstack(A_data), allow_pickle=True)
+	np.save("{}/A.npy".format(processed_folder), np.hstack(A_data), allow_pickle=True)
+	json.dump(indices, open("{}/indices.json".format(processed_folder),"w"))
 
 def load_moons(domains, model=None, root='../../data'):
 
@@ -105,12 +89,12 @@ def load_moons(domains, model=None, root='../../data'):
 
 		angle = i*math.pi/(domains-1)
 
-		X, Y = make_moons(n_samples=200, noise=0.1, random_state=2701)
+		X, Y = make_moons(n_samples=MOON_SAMPLES, noise=0.1, random_state=2701)
 		rot = np.array([[math.cos(angle), math.sin(angle)], [-math.sin(angle), math.cos(angle)]])
 		X = np.matmul(X, rot)
 
-		U = np.array([i*1.0] * 200)/domains
-		A = np.array([i*1.0] * 200)/domains
+		U = np.array([i*1.0] * MOON_SAMPLES)/domains
+		A = np.array([i*1.0] * MOON_SAMPLES)/domains
 
 		X_data.append(X)
 		Y_data.append(Y)
@@ -124,7 +108,6 @@ def load_moons(domains, model=None, root='../../data'):
 	np.save("{}/Y.npy".format(processed_folder), np.hstack(Y_data), allow_pickle=True)
 	np.save("{}/A.npy".format(processed_folder), np.hstack(A_data), allow_pickle=True)
 	np.save("{}/U.npy".format(processed_folder), np.hstack(U_data), allow_pickle=True)
-	# np.save("{}/indices.npy".format(processed_folder), all_indices, allow_pickle=True)
 	json.dump(all_indices, open("{}/indices.json".format(processed_folder),"w"))
 
 
