@@ -1,7 +1,6 @@
 from losses import *
 
 
-
 class Config():
 	def __init__(self,args):
 		self.epoch_classifier = args.epoch_classifier
@@ -10,7 +9,6 @@ class Config():
 		self.EPOCH = args.epoch_finetune // self.SUBEPOCHS
 		self.bs = args.bs
 		self.CLASSIFICATION_BATCH_SIZE = 100
-		# self.PRETRAIN_EPOCH = 5
 		self.data = args.data 
 		self.update_num_steps = 1
 		self.num_finetune_domains = 2
@@ -115,7 +113,7 @@ class Config():
 			self.data_index_file = "../../data/ONP/processed/indices.json"
 			from models_GI import PredictionModel
 			self.classifier = PredictionModel
-			self.model_kwargs =  {"input_shape":59, "hidden_shapes":[200], "out_shape":1, "time_conditioning": True, "trelu": True, "use_time2vec":False, 
+			self.model_kwargs =  {"input_shape":59, "hidden_shapes":[200], "out_shape":1, "time_conditioning": True, "trelu": False, "use_time2vec":False, 
 									"leaky":True, "regression": False}
 			#self.model_kwargs = {"data_shape": 59, "hidden_shapes": [200], "out_shape": 1, "time_conditioning": True, "trelu": False, "time2vec": False}
 			self.lr = 1e-3
@@ -123,17 +121,15 @@ class Config():
 			self.loss_type = 'classification'
 			self.encoder = None
 
-			self.delta_lr=0.5
+			self.delta_lr=1.0
 			self.delta_clamp=0.1
 			self.delta_steps=10
-			self.lambda_GI=1.0
+			self.lambda_GI=0.5e-2
 			self.lr_reduce=10.0
 			self.w_decay = 1e-4
 
 
 		if args.data == 'm5':
-
-			
 
 			self.dataset_kwargs = {"root_dir":"../../data/M5/processed","device":args.device, "drop_cols":None}
 			self.source_domain_indices = [0, 1, 2]
@@ -150,7 +146,6 @@ class Config():
 			self.loss_type = 'regression'
 			self.encoder = None
 
-			self.delta_steps=5
 			self.w_decay = 1e-4
 			self.delta_lr=0.5
 			self.delta_clamp=0.5
@@ -179,7 +174,6 @@ class Config():
 			self.loss_type = 'regression'
 			self.encoder = None
 
-			self.delta_steps=5
 			self.w_decay = 1e-4
 			self.delta_lr=0.5
 			self.delta_clamp=0.5

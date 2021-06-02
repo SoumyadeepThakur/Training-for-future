@@ -89,6 +89,29 @@ class Config():
 			self.delta_clamp=0.5
 			self.delta_steps=5
 			self.lambda_GI=1.0
+		
+		if args.data == 'onp':
+
+			self.dataset_kwargs = {"root_dir":"../../data/ONP/processed","device":args.device, "drop_cols":None}
+			self.source_domain_indices = [0, 1, 2, 3, 4]
+			self.target_domain_indices = [5]
+			self.data_index_file = "../../data/ONP/processed/indices.json"
+			from models_GI import PredictionModel
+			self.classifier = PredictionModel
+			self.model_kwargs =  {"input_shape":59, "hidden_shapes":[200], "out_shape":1, "time_conditioning": True, "trelu": False, "use_time2vec":False, 
+									"leaky":True, "regression": False}
+			#self.model_kwargs = {"data_shape": 59, "hidden_shapes": [200], "out_shape": 1, "time_conditioning": True, "trelu": False, "time2vec": False}
+			self.lr = 1e-3
+			self.classifier_loss_fn = binary_classification_loss
+			self.loss_type = 'classification'
+			self.encoder = None
+
+			self.delta_lr=1.0
+			self.delta_clamp=0.1
+			self.delta_steps=10
+			self.lambda_GI=0.5
+			self.lr_reduce=10.0
+			self.w_decay = 1e-4
 		'''
 
 		if args.data == 'sleep':
@@ -132,17 +155,13 @@ class Config():
 			self.loss_type = 'regression'
 			self.encoder = None
 
-			self.delta_lr=5.0
-
-			self.delta_lr=0.5
-			self.delta_steps=5
 			self.w_decay = 1e-4
+			self.delta_lr=0.5
 			self.delta_clamp=0.5
 			self.delta_steps=5
 			self.lambda_GI=1.0
 			self.lr_reduce=20.0
 			self.schedule = True
-
 
 		if args.data == 'm5_household':
 
@@ -163,7 +182,6 @@ class Config():
 			self.loss_type = 'regression'
 			self.encoder = None
 
-			self.delta_steps=5
 			self.w_decay = 1e-4
 			self.delta_lr=0.5
 			self.delta_clamp=0.5

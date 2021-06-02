@@ -23,7 +23,7 @@ from PIL import Image
 from utils import *
 
 MOON_SAMPLES = 200
-ROTNIST_SAMPLES = 1000
+ROTNIST_SAMPLES = 1000	
 
 def load_onp(filename='../../data/ONP/OnlineNewsPopularity.csv', root='../../data'):
 
@@ -336,7 +336,12 @@ def load_m5(trainfile='../../data/M5/ca_hobbies_train.csv', testfile='../../data
 		sc = MinMaxScaler()
 		train = pd.read_csv(trainfile)
 
-		ckpts = ['2014-01-01', '2015-01-01', '2016-01-01']
+		#ckpts = ['2014-01-01', '2015-01-01', '2016-01-01']
+		ckpts = ['2013-02-01', '2013-03-01', '2013-04-01', '2013-05-01', '2013-06-01', '2013-07-01', '2013-08-01', '2013-09-01',
+				'2013-10-01', '2013-11-01', '2013-12-01', '2014-01-01', '2014-02-01', '2014-03-01', '2014-04-01', '2014-05-01',
+				'2014-06-01', '2014-07-01', '2014-08-01', '2014-09-01', '2014-10-01', '2014-11-01', '2014-12-01', '2015-01-01',
+				'2015-02-01', '2015-03-01', '2015-04-01', '2015-05-01', '2015-06-01', '2015-07-01', '2015-08-01', '2015-09-01',
+				'2015-10-01', '2015-11-01', '2015-12-01', '2016-01-01']
 		indices = []
 		index_len = 0
 		for i, ckpt in enumerate(ckpts):
@@ -366,7 +371,7 @@ def load_m5(trainfile='../../data/M5/ca_hobbies_train.csv', testfile='../../data
 
 		test = pd.read_csv(testfile)
 
-		test = test[test['date'] < '2016-01-16']
+		test = test[test['date'] < '2016-02-01']
 		test = test.drop(['date', 'part', 'id'], axis=1)
 		Y = test['demand'].values.astype(np.float32)
 		X = test.drop(['demand'], axis=1).values.astype(np.float32)
