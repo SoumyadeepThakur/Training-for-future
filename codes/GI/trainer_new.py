@@ -62,10 +62,10 @@ def plot_overlapping_boundary(c, u_1, u_2, X, Y, X_2, Y_2, name):
 	'''
 	matplotlib.rcParams['text.usetex'] = True
 	plt.rc('font', family='serif', size=24, weight='bold')
-	matplotlib.rcParams['axes.spines.right'] = False
-	matplotlib.rcParams['axes.spines.top'] = False
-	matplotlib.rcParams['axes.spines.left'] = False
-	matplotlib.rcParams['axes.spines.bottom'] = False
+	#matplotlib.rcParams['axes.spines.right'] = False
+	#matplotlib.rcParams['axes.spines.top'] = False
+	#matplotlib.rcParams['axes.spines.left'] = False
+	#matplotlib.rcParams['axes.spines.bottom'] = False
 	plt.rc('xtick', labelsize=20)
 	plt.rc('ytick', labelsize=20)
 	matplotlib.rc('text', usetex=True)
@@ -93,7 +93,7 @@ def plot_overlapping_boundary(c, u_1, u_2, X, Y, X_2, Y_2, name):
 	Z1 = Z1.reshape(xx.shape)
 	Z2 = torch.round(c(torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]), torch.tensor([[u_2/11]]*900*900))).detach().numpy()
 	Z2 = Z2.reshape(xx.shape)
-	
+
 
 	plt.xlabel(r'\textbf{feature} $x_1$')
 	plt.ylabel(r'\textbf{feature} $x_2$')
@@ -102,21 +102,26 @@ def plot_overlapping_boundary(c, u_1, u_2, X, Y, X_2, Y_2, name):
 	
 	prev_lab = ["6th - Class 0", "6th - Class 1"]
 	cur_lab = ["Class 0", "Class 1"]
-	
+	plt.contour(xx, yy, Z1, levels=[0], cmap=plt.cm.bwr, vmin=-1.0, vmax=2.0)
+	plt.contour(xx, yy, Z2, levels=[0], cmap=plt.cm.seismic)
+	cur = plt.scatter(X[:, 0], X[:, 1], s=25, c=Y, cmap=plt.cm.seismic, alpha=0.7)
+	prev = plt.scatter(X_2[:, 0], X_2[:, 1], s=25, c=Y_2, cmap=plt.cm.bwr, vmin=-1.0, vmax=2.0, alpha=0.7)
+	#plt.gcf().subplots_adjust(left=0.15, bottom=0.15)
+
 	col1_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#00004c", label='T = 10, y = -1')[0]
 	col2_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#800000", label='T = 10, y = 1')[0]
 	col3_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#ababff", label='T = 7, y = -1')[0]
 	col4_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#ffabab", label='T = 7, y = 1')[0]
-	
-	legend = plt.legend(handles=[col1_legend, col2_legend, col3_legend, col4_legend], fontsize=10, loc=9, ncol=4, framealpha=1, frameon=False)
+	#plt.legend(handles=prev.legend_elements()[0], labels=prev_lab, fontsize=8)
+	#legend = plt.legend(handles=[col1_legend, col2_legend, col3_legend, col4_legend], fontsize=10, loc=9, ncol=4, framealpha=1, frameon=False)
 
-	def export_legend(legend, filename="legend.pdf"):
-		fig  = legend.figure
-		fig.canvas.draw()
-		bbox  = legend.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
-		fig.savefig(filename, dpi="figure", bbox_inches=bbox)
+	#def export_legend(legend, filename="legend.pdf"):
+	#	fig  = legend.figure
+	#	fig.canvas.draw()
+	#	bbox  = legend.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+	#	fig.savefig(filename, dpi="figure", bbox_inches=bbox)
 
-	export_legend(legend)
+	#export_legend(legend)
 		
 	plt.savefig('final_plots/%s_%f_%f.pdf' %(name, u_1, u_2))
 	plt.clf()
@@ -727,6 +732,7 @@ class GradRegTrainer():
 		data_indices = json.load(open(data_index_file,"r")) #, allow_pickle=True)
 		self.source_data_indices = [data_indices[i] for i in self.source_domain_indices]
 		self.cumulative_data_indices = get_cumulative_data_indices(self.source_data_indices)
+		# print(self.cumulative_data_indices)
 		self.target_indices = [data_indices[i] for i in self.target_domain_indices][0]  # TODO Flatten this list instead of picking 0th ele
 		
 		self.shuffle = True
