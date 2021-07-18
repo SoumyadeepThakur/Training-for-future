@@ -83,6 +83,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_k',type=int)
     parser.add_argument('--ensemble',action='store_true')
     parser.add_argument('--pretrained',action='store_true')
+    parser.add_argument('--plot',action='store_true')
 
     
     args = parser.parse_args()

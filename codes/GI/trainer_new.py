@@ -20,7 +20,6 @@ from tqdm import tqdm
 from losses import *
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 # from torch.utils.tensorboard import SummaryWriter
-from torchviz import make_dot
 import time 
 
 np.set_printoptions(precision = 3)
@@ -715,7 +714,7 @@ class GradRegTrainer():
 			config = Config(args)
 
 		self.log = config.log
-		
+		self.plot = args.plot
 		self.DataSetClassifier = ClassificationDataSet
 		self.CLASSIFIER_EPOCHS = config.epoch_classifier
 		self.FINETUNING_EPOCHS = config.epoch_finetune 
@@ -935,12 +934,12 @@ class GradRegTrainer():
 						#delta_ = torch.FloatTensor(1,1).uniform_(-0.1,0.1).to(self.device) #self.delta 
 
 						self.delta = torch.tensor(delta_) #+ torch.rand(1).float().to(self.device)*0.001
-						print('ORIGINAL %.9f' %self.delta.clone().detach().cpu().numpy())
+						
 						if torch.abs(self.delta) < 1e-4 or torch.abs(self.delta-self.delta_clamp) < 1e-4 or torch.abs(self.delta+self.delta_clamp) < 1e-4:
 							self.delta = torch.FloatTensor(1,1).uniform_(-0.1,0.1).to(self.device)
-							print('yayyy')
+							
 						l,delta_ = adversarial_finetune(batch_X, batch_U, batch_Y, self.delta, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i))
-						print('NEXT %.9f' %delta_.clone().detach().cpu().numpy())
+						
 					elif self.model in ["grad_reg"]:
 						delta = (torch.rand(batch_U.size()).float()*(0.1-(-0.1)) - 0.1).to(batch_X.device)
 						# TODO pass delta hyperparams here
@@ -1034,7 +1033,7 @@ class GradRegTrainer():
 		if self.task == 'classification':
 			Y_pred = np.vstack(Y_pred)
 			Y_label = np.hstack(Y_label)
-			print('shape: ',Y_pred.shape, Y_label.shape)
+			
 			print('Accuracy: ',accuracy_score(Y_label, Y_pred),file=log)
 			print(confusion_matrix(Y_label, Y_pred),file=log)
 			print(classification_report(Y_label, Y_pred),file=log)    
@@ -1085,7 +1084,7 @@ class GradRegTrainer():
 	def train(self):
 
 		# if os.path.exists("classifier_{}_{}.pth".format(self.data,self.seed)):
-		print(self.classifier)
+		#print(self.classifier)
 		if self.use_pretrained:
 			try:
 				self.classifier.load_state_dict(torch.load("classifier_{}_{}.pth".format(self.data,self.seed)))
@@ -1127,24 +1126,23 @@ class GradRegTrainer():
 		#		plot_overlapping_boundary(self.classifier, u, u+2, batch_X,  batch_Y, 'ground truth')
 				#plot_gradients(self.classifier, u, batch_X,  batch_Y, self.model)
 		
-		
-		idxs = self.target_indices
-		print(idxs)
-		td = ClassificationDataSet(indices=idxs,**self.dataset_kwargs)
-		target_dataset = torch.utils.data.DataLoader(td,400,False,drop_last=False)
-		'''
-		for batch_X, batch_A,batch_U, batch_Y in target_dataset:
-
-			src_ids = self.source_data_indices[6]
-			sd = ClassificationDataSet(indices=src_ids,**self.dataset_kwargs)
-			source_dataset = torch.utils.data.DataLoader(sd, 400, False, drop_last=False)
-			for s_X, s_A, s_U, s_Y in source_dataset:
-				#print(batch_X, batch_Y, s_X, s_Y)
-				plot_overlapping_boundary(self.classifier, 6, 9, batch_X, batch_Y, s_X, s_Y, self.model)
-				#plot_decision_boundary(self.classifier, 9, batch_X, batch_Y, self.model)
+		if self.plot:
+			idxs = self.target_indices
+			td = ClassificationDataSet(indices=idxs,**self.dataset_kwargs)
+			target_dataset = torch.utils.data.DataLoader(td,400,False,drop_last=False)
 			
-			#plot_gradients(self.classifier, 9, batch_X, batch_Y, self.model)		
+			for batch_X, batch_A,batch_U, batch_Y in target_dataset:
+
+				src_ids = self.source_data_indices[6]
+				sd = ClassificationDataSet(indices=src_ids,**self.dataset_kwargs)
+				source_dataset = torch.utils.data.DataLoader(sd, 400, False, drop_last=False)
+				for s_X, s_A, s_U, s_Y in source_dataset:
+					#print(batch_X, batch_Y, s_X, s_Y)
+					plot_overlapping_boundary(self.classifier, 6, 9, batch_X, batch_Y, s_X, s_Y, self.model)
+					#plot_decision_boundary(self.classifier, 9, batch_X, batch_Y, self.model)
+				
+				#plot_gradients(self.classifier, 9, batch_X, batch_Y, self.model)		
+			
+			
+			
 		
-		
-		
-		'''
