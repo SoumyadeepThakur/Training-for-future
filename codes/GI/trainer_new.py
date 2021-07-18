@@ -11,7 +11,7 @@ import os
 import torch.nn.functional as F
 import matplotlib
 import matplotlib.pyplot as plt
-
+import matplotlib.patches as mpatches
 # from models import *
 from utils import *
 from dataset_GI import *
@@ -20,7 +20,6 @@ from tqdm import tqdm
 from losses import *
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 # from torch.utils.tensorboard import SummaryWriter
-from torchviz import make_dot
 import time 
 
 np.set_printoptions(precision = 3)
@@ -54,12 +53,30 @@ def plot_decision_boundary(c, u, X, Y, name):
 
 def plot_overlapping_boundary(c, u_1, u_2, X, Y, X_2, Y_2, name):
 		
+	'''
 	font = {'family' : 'normal',
 		'weight' : 'bold',
 		'size'   : 18}
 
 	matplotlib.rc('font', **font)
-
+	'''
+	matplotlib.rcParams['text.usetex'] = True
+	plt.rc('font', family='serif', size=24, weight='bold')
+	matplotlib.rcParams['axes.spines.right'] = False
+	matplotlib.rcParams['axes.spines.top'] = False
+	matplotlib.rcParams['axes.spines.left'] = False
+	matplotlib.rcParams['axes.spines.bottom'] = False
+	plt.rc('xtick', labelsize=20)
+	plt.rc('ytick', labelsize=20)
+	matplotlib.rc('text', usetex=True)
+	matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{amsmath,amsfonts}"]
+	matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{bm}"]
+	plt.rc('axes', linewidth=1)
+	#plt.rc('axes', labelsize=20)
+	plt.rc('axes', titlesize=20)
+	#plt.rc('axes', weight='bold')
+	plt.rc('font', weight='bold')
+	matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 	# Set min and max values and give it some padding
 	x_min, x_max = -2.5, 2.0
 	y_min, y_max = -2.0, 2.5
@@ -72,17 +89,17 @@ def plot_overlapping_boundary(c, u_1, u_2, X, Y, X_2, Y_2, name):
 	cmpp = matplotlib.colors.ListedColormap(colors)
 	xx,yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
 	# Predict the function value for the whole gid
-	Z1 = c(torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]), torch.tensor([[u_1/11]]*900*900)).detach().numpy()
+	Z1 = torch.round(c(torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]), torch.tensor([[u_1/11]]*900*900))).detach().numpy()
 	Z1 = Z1.reshape(xx.shape)
-	Z2 = c(torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]), torch.tensor([[u_2/11]]*900*900)).detach().numpy()
+	Z2 = torch.round(c(torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]), torch.tensor([[u_2/11]]*900*900))).detach().numpy()
 	Z2 = Z2.reshape(xx.shape)
 	# Plot the contour and training examples
 	#sns.heatmap(Z)
 	#plt.show()
 	#print(Z)
 	
-	Z1 = (abs(Z1 - 0.5) < 5e-2).astype(np.float)
-	Z2 = (abs(Z2 - 0.5) < 5e-2).astype(np.float)
+	#Z1 = (abs(Z1 - 0.5) < 5e-2).astype(np.float)
+	#Z2 = (abs(Z2 - 0.5) < 5e-2).astype(np.float)
 	'''
 	y1 = []
 	y2 = []
@@ -98,9 +115,13 @@ def plot_overlapping_boundary(c, u_1, u_2, X, Y, X_2, Y_2, name):
 		print(idx)
 		y2.append(yy[:,0][int(np.min(idx))])
 	'''
-	Z = (14*Z2)/15.0
+	#Z = (6*Z1 + 14*Z2)/15.0
 	#Z = np.zeros_like(Z)
-	plt.title('%s' %(name))
+	#plt.title('%s' %(name))
+
+
+	plt.xlabel(r'\textbf{feature} $x_1$')
+	plt.ylabel(r'\textbf{feature} $x_2$')
 	plt.xlim(-2.5, 2.0)
 	plt.ylim(-2.0, 2.5)
 	#plt.contourf(xx, yy, Z, cmap=plt.cm.binary, vmin=0, vmax=1)
@@ -108,13 +129,37 @@ def plot_overlapping_boundary(c, u_1, u_2, X, Y, X_2, Y_2, name):
 	#plt.plot(xx[0], y2, color='#00004c', linewidth=3.0)
 	prev_lab = ["6th - Class 0", "6th - Class 1"]
 	cur_lab = ["Class 0", "Class 1"]
-	plt.contourf(xx, yy, Z, cmap=cmpp, vmin=0, vmax=1)
-	cur = plt.scatter(X[:, 0], X[:, 1], s=25, c=Y, cmap=plt.cm.seismic, alpha=0.7)
-	prev = plt.scatter(X_2[:, 0], X_2[:, 1], s=25, c=Y_2, cmap=plt.cm.bwr, vmin=-1.0, vmax=2.0, alpha=0.7)
+	#plt.contour(xx, yy, Z1, levels=[0], cmap=plt.cm.bwr, vmin=-1.0, vmax=2.0)
+	#plt.contour(xx, yy, Z2, levels=[0], cmap=plt.cm.seismic)
+	#cur = plt.scatter(X[:, 0], X[:, 1], s=25, c=Y, cmap=plt.cm.seismic, alpha=0.7)
+	#prev = plt.scatter(X_2[:, 0], X_2[:, 1], s=25, c=Y_2, cmap=plt.cm.bwr, vmin=-1.0, vmax=2.0, alpha=0.7)
+	#plt.gcf().subplots_adjust(left=0.15, bottom=0.15)
+
 	#plt.legend((prev, cur), ("7th domain", "10th domain"), fontsize=8)
-	plt.legend(handles=prev.legend_elements()[0], labels=prev_lab, fontsize=8)
-	plt.legend(handles=cur.legend_elements()[0], labels=cur_lab, fontsize=8)
-	plt.savefig('final_plots/%s_%f_%f.png' %(name, u_1, u_2))
+	#col1_legend = mpatches.Circle((0.5, 0.5), color="#00004c", label='10th - Class 0')
+	#col2_legend = mpatches.Circle((0.5, 0.5), color="#800000", label='10th - Class 1')
+	#col3_legend = mpatches.Circle((0.5, 0.5), color="#ababff", label='7th - Class 0')
+	#col4_legend = mpatches.Circle((0.5, 0.5), color="#ffabab", label='7th - Class 1')
+	col1_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#00004c", label='T = 10, y = -1')[0]
+	col2_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#800000", label='T = 10, y = 1')[0]
+	col3_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#ababff", label='T = 7, y = -1')[0]
+	col4_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#ffabab", label='T = 7, y = 1')[0]
+	#col2_legend = mpatches.Circle((0.5, 0.5), color="#800000", label='10th - Class 1')
+	#col3_legend = mpatches.Circle((0.5, 0.5), color="#ababff", label='7th - Class 0')
+	#col4_legend = mpatches.Circle((0.5, 0.5), color="#ffabab", label='7th - Class 1')
+	#
+	#plt.legend(handles=prev.legend_elements()[0], labels=prev_lab, fontsize=8)
+	legend = plt.legend(handles=[col1_legend, col2_legend, col3_legend, col4_legend], fontsize=10, loc=9, ncol=4, framealpha=1, frameon=False)
+
+	def export_legend(legend, filename="legend.pdf"):
+		fig  = legend.figure
+		fig.canvas.draw()
+		bbox  = legend.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+		fig.savefig(filename, dpi="figure", bbox_inches=bbox)
+
+	export_legend(legend)
+		
+	#plt.savefig('final_plots/%s_%f_%f.pdf' %(name, u_1, u_2))
 	plt.clf()
 
 def plot_gradients(c, u, X, Y, name):
@@ -420,6 +465,7 @@ def adversarial_finetune(X, U, Y, delta, classifier, classifier_optimizer,classi
 	#print(partial_Y_pred_t.shape)
 	# partial_Y_pred_t = torch.autograd.grad(Y_pred, U_grad, grad_outputs=torch.ones_like(Y_pred), retain_graph=True)[0]
 	Y_pred = Y_pred + delta * partial_Y_pred_t
+	#print(partial_Y_pred_t)
 	if len(Y_pred.shape)>1 and Y_pred.shape[1] > 1:
 		Y_pred = torch.softmax(Y_pred,dim=-1)
 	# Y_true = Y
@@ -668,7 +714,7 @@ class GradRegTrainer():
 			config = Config(args)
 
 		self.log = config.log
-		
+		self.plot = args.plot
 		self.DataSetClassifier = ClassificationDataSet
 		self.CLASSIFIER_EPOCHS = config.epoch_classifier
 		self.FINETUNING_EPOCHS = config.epoch_finetune 
@@ -797,6 +843,8 @@ class GradRegTrainer():
 						if self.writer is not None:
 							self.writer.add_scalar("loss/classifier",l.item(),class_step)
 					print("Epoch %d Loss %f"%(epoch,class_loss/(len(past_data)/(self.BATCH_SIZE))),flush=False)
+					if self.schedule:
+						self.scheduler.step()
 
 
 	def predict_ensemble(self,X,U,delta,k):
@@ -886,9 +934,12 @@ class GradRegTrainer():
 						#delta_ = torch.FloatTensor(1,1).uniform_(-0.1,0.1).to(self.device) #self.delta 
 
 						self.delta = torch.tensor(delta_) #+ torch.rand(1).float().to(self.device)*0.001
-						print('ORIGINAL',self.delta)
+						
+						if torch.abs(self.delta) < 1e-4 or torch.abs(self.delta-self.delta_clamp) < 1e-4 or torch.abs(self.delta+self.delta_clamp) < 1e-4:
+							self.delta = torch.FloatTensor(1,1).uniform_(-0.1,0.1).to(self.device)
+							
 						l,delta_ = adversarial_finetune(batch_X, batch_U, batch_Y, self.delta, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i))
-						print(delta_)
+						
 					elif self.model in ["grad_reg"]:
 						delta = (torch.rand(batch_U.size()).float()*(0.1-(-0.1)) - 0.1).to(batch_X.device)
 						# TODO pass delta hyperparams here
@@ -909,7 +960,7 @@ class GradRegTrainer():
 						# TODO pass delta hyperparams here
 						l = finetune(batch_X, batch_U, batch_Y, delta, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i))
 					elif self.model in ["GI_num_int"]:
-						delta = self.delta 
+						delta = self.delta
 						# k = int((epoch / self.FINETUNING_EPOCHS)*self.max_k) + 1  # This is curriculum learning, We may need a different function
 						k = int(self.max_k)
 						l = finetune_num_int(batch_X, batch_U, batch_Y, delta,k, self.classifier, self.classifier_optimizer,self.classifier_loss_fn,delta_lr=self.delta_lr,delta_clamp=self.delta_clamp,delta_steps=self.delta_steps,lambda_GI=self.lambda_GI,writer=self.writer,step=step,string="delta_{}".format(i))
@@ -982,7 +1033,7 @@ class GradRegTrainer():
 		if self.task == 'classification':
 			Y_pred = np.vstack(Y_pred)
 			Y_label = np.hstack(Y_label)
-			print('shape: ',Y_pred.shape, Y_label.shape)
+			
 			print('Accuracy: ',accuracy_score(Y_label, Y_pred),file=log)
 			print(confusion_matrix(Y_label, Y_pred),file=log)
 			print(classification_report(Y_label, Y_pred),file=log)    
@@ -1033,7 +1084,7 @@ class GradRegTrainer():
 	def train(self):
 
 		# if os.path.exists("classifier_{}_{}.pth".format(self.data,self.seed)):
-		print(self.classifier)
+		#print(self.classifier)
 		if self.use_pretrained:
 			try:
 				self.classifier.load_state_dict(torch.load("classifier_{}_{}.pth".format(self.data,self.seed)))
@@ -1075,23 +1126,23 @@ class GradRegTrainer():
 		#		plot_overlapping_boundary(self.classifier, u, u+2, batch_X,  batch_Y, 'ground truth')
 				#plot_gradients(self.classifier, u, batch_X,  batch_Y, self.model)
 		
-		
-		idxs = self.target_indices
-		print(idxs)
-		td = ClassificationDataSet(indices=idxs,**self.dataset_kwargs)
-		target_dataset = torch.utils.data.DataLoader(td,400,False,drop_last=False)
-		
-		for batch_X, batch_A,batch_U, batch_Y in target_dataset:
-
-			src_ids = self.source_data_indices[6]
-			sd = ClassificationDataSet(indices=src_ids,**self.dataset_kwargs)
-			source_dataset = torch.utils.data.DataLoader(sd, 400, False, drop_last=False)
-			for s_X, s_A, s_U, s_Y in source_dataset:
-				#print(batch_X, batch_Y, s_X, s_Y)
-				plot_overlapping_boundary(self.classifier, 6, 9, batch_X, batch_Y, s_X, s_Y, self.model)
-				#plot_decision_boundary(self.classifier, 9, batch_X, batch_Y, self.model)
+		if self.plot:
+			idxs = self.target_indices
+			td = ClassificationDataSet(indices=idxs,**self.dataset_kwargs)
+			target_dataset = torch.utils.data.DataLoader(td,400,False,drop_last=False)
 			
-			#plot_gradients(self.classifier, 9, batch_X, batch_Y, self.model)		
-		
-		
+			for batch_X, batch_A,batch_U, batch_Y in target_dataset:
+
+				src_ids = self.source_data_indices[6]
+				sd = ClassificationDataSet(indices=src_ids,**self.dataset_kwargs)
+				source_dataset = torch.utils.data.DataLoader(sd, 400, False, drop_last=False)
+				for s_X, s_A, s_U, s_Y in source_dataset:
+					#print(batch_X, batch_Y, s_X, s_Y)
+					plot_overlapping_boundary(self.classifier, 6, 9, batch_X, batch_Y, s_X, s_Y, self.model)
+					#plot_decision_boundary(self.classifier, 9, batch_X, batch_Y, self.model)
+				
+				#plot_gradients(self.classifier, 9, batch_X, batch_Y, self.model)		
+			
+			
+			
 		
