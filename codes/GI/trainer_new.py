@@ -93,62 +93,21 @@ def plot_overlapping_boundary(c, u_1, u_2, X, Y, X_2, Y_2, name):
 	Z1 = Z1.reshape(xx.shape)
 	Z2 = torch.round(c(torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()]), torch.tensor([[u_2/11]]*900*900))).detach().numpy()
 	Z2 = Z2.reshape(xx.shape)
-	# Plot the contour and training examples
-	#sns.heatmap(Z)
-	#plt.show()
-	#print(Z)
 	
-	#Z1 = (abs(Z1 - 0.5) < 5e-2).astype(np.float)
-	#Z2 = (abs(Z2 - 0.5) < 5e-2).astype(np.float)
-	'''
-	y1 = []
-	y2 = []
-	for i, x in enumerate(xx[0]):
-		y = Z1[:,i]
-		#idx = np.where(y == 1.0)[0]
-		idx = np.argmin(y)
-		print(idx)
-		y1.append(yy[:,0][int(np.min(idx))])
-		y = Z2[:,i]
-		#idx = np.where(y == 1.0)[0]
-		idx = np.argmin(y)
-		print(idx)
-		y2.append(yy[:,0][int(np.min(idx))])
-	'''
-	#Z = (6*Z1 + 14*Z2)/15.0
-	#Z = np.zeros_like(Z)
-	#plt.title('%s' %(name))
-
 
 	plt.xlabel(r'\textbf{feature} $x_1$')
 	plt.ylabel(r'\textbf{feature} $x_2$')
 	plt.xlim(-2.5, 2.0)
 	plt.ylim(-2.0, 2.5)
-	#plt.contourf(xx, yy, Z, cmap=plt.cm.binary, vmin=0, vmax=1)
-	#plt.plot(xx[0], y1, 'c--', linewidth=3.0)
-	#plt.plot(xx[0], y2, color='#00004c', linewidth=3.0)
+	
 	prev_lab = ["6th - Class 0", "6th - Class 1"]
 	cur_lab = ["Class 0", "Class 1"]
-	#plt.contour(xx, yy, Z1, levels=[0], cmap=plt.cm.bwr, vmin=-1.0, vmax=2.0)
-	#plt.contour(xx, yy, Z2, levels=[0], cmap=plt.cm.seismic)
-	#cur = plt.scatter(X[:, 0], X[:, 1], s=25, c=Y, cmap=plt.cm.seismic, alpha=0.7)
-	#prev = plt.scatter(X_2[:, 0], X_2[:, 1], s=25, c=Y_2, cmap=plt.cm.bwr, vmin=-1.0, vmax=2.0, alpha=0.7)
-	#plt.gcf().subplots_adjust(left=0.15, bottom=0.15)
-
-	#plt.legend((prev, cur), ("7th domain", "10th domain"), fontsize=8)
-	#col1_legend = mpatches.Circle((0.5, 0.5), color="#00004c", label='10th - Class 0')
-	#col2_legend = mpatches.Circle((0.5, 0.5), color="#800000", label='10th - Class 1')
-	#col3_legend = mpatches.Circle((0.5, 0.5), color="#ababff", label='7th - Class 0')
-	#col4_legend = mpatches.Circle((0.5, 0.5), color="#ffabab", label='7th - Class 1')
+	
 	col1_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#00004c", label='T = 10, y = -1')[0]
 	col2_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#800000", label='T = 10, y = 1')[0]
 	col3_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#ababff", label='T = 7, y = -1')[0]
 	col4_legend = plt.plot([], [], marker='o', ms=5, ls="", mec=None, color="#ffabab", label='T = 7, y = 1')[0]
-	#col2_legend = mpatches.Circle((0.5, 0.5), color="#800000", label='10th - Class 1')
-	#col3_legend = mpatches.Circle((0.5, 0.5), color="#ababff", label='7th - Class 0')
-	#col4_legend = mpatches.Circle((0.5, 0.5), color="#ffabab", label='7th - Class 1')
-	#
-	#plt.legend(handles=prev.legend_elements()[0], labels=prev_lab, fontsize=8)
+	
 	legend = plt.legend(handles=[col1_legend, col2_legend, col3_legend, col4_legend], fontsize=10, loc=9, ncol=4, framealpha=1, frameon=False)
 
 	def export_legend(legend, filename="legend.pdf"):
@@ -159,7 +118,7 @@ def plot_overlapping_boundary(c, u_1, u_2, X, Y, X_2, Y_2, name):
 
 	export_legend(legend)
 		
-	#plt.savefig('final_plots/%s_%f_%f.pdf' %(name, u_1, u_2))
+	plt.savefig('final_plots/%s_%f_%f.pdf' %(name, u_1, u_2))
 	plt.clf()
 
 def plot_gradients(c, u, X, Y, name):
@@ -768,7 +727,6 @@ class GradRegTrainer():
 		data_indices = json.load(open(data_index_file,"r")) #, allow_pickle=True)
 		self.source_data_indices = [data_indices[i] for i in self.source_domain_indices]
 		self.cumulative_data_indices = get_cumulative_data_indices(self.source_data_indices)
-		# print(self.cumulative_data_indices)
 		self.target_indices = [data_indices[i] for i in self.target_domain_indices][0]  # TODO Flatten this list instead of picking 0th ele
 		
 		self.shuffle = True

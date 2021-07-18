@@ -25,8 +25,6 @@ def main(args):
     
     args.device = "cpu"
     args.data = "moons"
-    #args.epoch_classifier = 30
-    #args.epoch_finetune = 25
     args.bs = 100
     args.train_algo = "grad-int"
     args.early_stopping = True
@@ -35,9 +33,12 @@ def main(args):
     
         load_moons(11)
 
-    trainer = GradRegTrainer(args)
+    if args.model=='cida':
+        import main_moons
+    else:
+        trainer = GradRegTrainer(args)
         
-    trainer.train()
+        trainer.train()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
