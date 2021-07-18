@@ -22,7 +22,7 @@ args.save_head='tmp'
 args.save_interval=20
 args.log_interval=20
 args.log_file='tmp_mlp'
-seed=4
+seed=3
 args.cuda=False
 
 
@@ -571,6 +571,13 @@ for ep in range(args.epochs):
 
 print('Best accuracy: ', best_acc)
 
+models = [encoder,predictor,discriminator]
+log_file = open("moons_cida.txt","a")
+print("Seed - {}".format(seed),file=log_file)
+print("Acc: {}".format(best_acc),file=log_file)
+log_file.close()
+
+
 plot_loader = torch.utils.data.DataLoader(Moonsdata(fname, [9], normalize), batch_size=400, **kwargs)
 print(plot_loader)
 for raw, target, u, x in plot_loader:
@@ -581,9 +588,4 @@ for raw, target, u, x in plot_loader:
 
 
 
-models = [encoder,predictor,discriminator]
-log_file = open("moons_cida.txt","a")
-print("Seed - {}".format(seed),file=log_file)
-print("Acc: {}".format(best_acc),file=log_file)
-log_file.close()
 

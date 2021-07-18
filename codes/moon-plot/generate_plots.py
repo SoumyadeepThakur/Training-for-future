@@ -35,6 +35,9 @@ def main(args):
 
     if args.model=='cida':
         import main_moons
+    elif args.model=='cdot':
+        import ot_main
+        ot_main.main()
     else:
         trainer = GradRegTrainer(args)
         
@@ -46,7 +49,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', default='GI', help="Model")
     parser.add_argument('--preprocess', action='store_true', help="Do we pre-process the data?")
     parser.add_argument('--epoch_finetune',default=25, help="Needs to be int, number of epochs for transformer/ordinal classifier",type=int)
-    parser.add_argument('--epoch_classifier',default=35, help="Needs to be int, number of epochs for classifier",type=int)
+    parser.add_argument('--epoch_classifier',default=30, help="Needs to be int, number of epochs for classifier",type=int)
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--delta', default=0.0, type=float)
     parser.add_argument('--max_k', type=int)
